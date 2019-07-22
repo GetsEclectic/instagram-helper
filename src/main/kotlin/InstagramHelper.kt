@@ -2,6 +2,7 @@ import org.brunocvcunha.instagram4j.Instagram4j
 import org.brunocvcunha.instagram4j.requests.*
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
+import org.brunocvcunha.instagram4j.requests.payload.StatusResult
 import java.io.File
 
 const val BLACKLIST_FILE_PATH = "data/follow_blacklist"
@@ -39,9 +40,7 @@ class InstagramHelper(instaName: String, instaPW: String) {
 
             do {
                 val followersResult = instagram4j.sendRequest(InstagramGetUserFollowersRequest(instagramUser.pk, nextMaxId))
-
                 yieldAll(followersResult.users)
-
                 nextMaxId = followersResult.next_max_id
             } while (nextMaxId != null)
         }
@@ -80,8 +79,8 @@ class InstagramHelper(instaName: String, instaPW: String) {
         File(BLACKLIST_FILE_PATH).appendText("$pk,")
     }
 
-    fun followByPK(pk: Long) {
-        instagram4j.sendRequest(InstagramFollowRequest(pk))
+    fun followByPK(pk: Long): StatusResult {
+        return instagram4j.sendRequest(InstagramFollowRequest(pk))
     }
 
     // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
@@ -130,8 +129,13 @@ class InstagramHelper(instaName: String, instaPW: String) {
             .filter { !myFollowerPKs.contains(it.pk) }
             .filter { getRatioForUser(it.username) < 0.5 }
             .map {
-                followByPK(it.pk)
                 println("following: ${it.pk}")
+                val statusResult = followByPK(it.pk)
+
+                if(statusResult.status.equals("fail")) {
+                    throw Exception("follow call failed, are you rate limited?")
+                }
+
                 Thread.sleep(1000)
             }
             .take(numberToCopy)
