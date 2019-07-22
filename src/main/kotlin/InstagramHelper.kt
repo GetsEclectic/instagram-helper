@@ -12,29 +12,20 @@ fun main(args: Array<String>) {
     val instaName = System.getenv("INSTANAME")
     val instagramHelper = InstagramHelper(instaName, instaPW)
 
-    val extendedInstagramUser = instagramHelper.getUser(instaName)
-
-    extendedInstagramUser.unfollowUnfollowers()
+    instagramHelper.unfollowUnfollowers()
 }
 
 class InstagramHelper(val instaName: String, val instaPW: String) {
-    private fun login(): Instagram4j {
-        val instagram4j = Instagram4j.builder().username(instaName).password(instaPW).build()
+
+    private val instagram4j = Instagram4j.builder().username(instaName).password(instaPW).build()
+
+    init {
         instagram4j.setup()
         instagram4j.login()
-        return instagram4j
     }
 
-    private val instagram4j = login()
+    private val instagramUser =  instagram4j.sendRequest(InstagramSearchUsernameRequest(instaName)).user
 
-    fun getUser(userName: String): ExtendedInstagramUser {
-        println("getting user: $userName")
-        val instagramUser =  instagram4j.sendRequest(InstagramSearchUsernameRequest(userName)).user
-        return ExtendedInstagramUser(instagramUser, instagram4j)
-    }
-}
-
-class ExtendedInstagramUser(val instagramUser: InstagramUser, val instagram4j: Instagram4j) {
     fun getFollowers(): Set<InstagramUserSummary> {
         println("getting followers for: ${instagramUser.username}")
         val followersSet = HashSet<InstagramUserSummary>()
