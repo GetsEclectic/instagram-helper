@@ -11,7 +11,7 @@ fun main() {
     val instaName = System.getenv("INSTANAME")
     val instagramHelper = InstagramHelper(instaName, instaPW)
 
-    instagramHelper.copyFollowers("indyginheart")
+    println("unfollowers: ${instagramHelper.getUnfollowerPKs().size}")
 }
 
 class InstagramHelper(instaName: String, instaPW: String) {
@@ -126,7 +126,7 @@ class InstagramHelper(instaName: String, instaPW: String) {
         val blacklist = getBlacklist()
         val myFollowerPKs = getFollowers().toList().map { it.pk }
 
-        val usersToFollow = otherUsersFollowers.filter { !blacklist.contains(it.pk) }
+        otherUsersFollowers.filter { !blacklist.contains(it.pk) }
             .filter { !myFollowerPKs.contains(it.pk) }
             .filter { getRatioForUser(it.username) < 0.5 }
             .map {
