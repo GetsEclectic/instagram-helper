@@ -1,8 +1,5 @@
 import org.brunocvcunha.instagram4j.Instagram4j
-import org.brunocvcunha.instagram4j.requests.InstagramGetUserFollowersRequest
-import org.brunocvcunha.instagram4j.requests.InstagramGetUserFollowingRequest
-import org.brunocvcunha.instagram4j.requests.InstagramSearchUsernameRequest
-import org.brunocvcunha.instagram4j.requests.InstagramUnfollowRequest
+import org.brunocvcunha.instagram4j.requests.*
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import java.io.File
@@ -14,7 +11,7 @@ fun main() {
     val instaName = System.getenv("INSTANAME")
     val instagramHelper = InstagramHelper(instaName, instaPW)
 
-    instagramHelper.unfollowUnfollowers()
+    instagramHelper.copyFollowers("indyginheart")
 }
 
 class InstagramHelper(instaName: String, instaPW: String) {
@@ -30,6 +27,7 @@ class InstagramHelper(instaName: String, instaPW: String) {
 
 
     fun getInstagramUser(name: String): InstagramUser {
+        Thread.sleep(1000)
         return instagram4j.sendRequest(InstagramSearchUsernameRequest(name)).user
     }
 
@@ -73,12 +71,17 @@ class InstagramHelper(instaName: String, instaPW: String) {
 
         unfollowerPKs.map {
             println("unfollowing: $it")
-            instagram4j.sendRequest(InstagramUnfollowRequest(it))
+            unfollowByPK(it)
         }
+    }
 
-        if( unfollowerPKs.isNotEmpty() ) {
-            File(BLACKLIST_FILE_PATH).appendText(unfollowerPKs.joinToString(postfix = ","))
-        }
+    fun unfollowByPK(pk: Long) {
+        instagram4j.sendRequest(InstagramUnfollowRequest(pk))
+        File(BLACKLIST_FILE_PATH).appendText("$pk,")
+    }
+
+    fun followByPK(pk: Long) {
+        instagram4j.sendRequest(InstagramFollowRequest(pk))
     }
 
     // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
@@ -86,14 +89,14 @@ class InstagramHelper(instaName: String, instaPW: String) {
         val following = getFollowing()
 
         following.map {
-            val followinger = instagram4j.sendRequest(InstagramSearchUsernameRequest(it.username)).user
+            val followinger = getInstagramUser(it.username)
             val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
 
             println("name: ${followinger.username}, followers: ${followinger.follower_count}, ratio: $followerRatio")
 
             if(followinger.follower_count > 100 && followerRatio < 0.3) {
                 println("unfollowing ${followinger.username}")
-                instagram4j.sendRequest(InstagramUnfollowRequest(followinger.pk))
+                unfollowByPK(followinger.pk)
 
             }
 
@@ -103,14 +106,35 @@ class InstagramHelper(instaName: String, instaPW: String) {
 
     fun getBlacklist(): HashSet<Long> {
         val blacklistString = File(BLACKLIST_FILE_PATH).readText()
-        return blacklistString.split(',').map { it.toLong() }.toHashSet()
+        // always ends in a comma, so drop the last item
+        return blacklistString.split(',').dropLast(1).map { it.toLong() }.toHashSet()
     }
 
-    // copies followers from another user, ignoring users in the blacklist, users we are already following, and users with a ratio > 1
-    fun copyFollowers(username: String) {
-        val userToCopyFrom = getInstagramUser(username)
-        val followersToFollow = getFollowers(userToCopyFrom)
-        val blacklist = getBlacklist()
+    fun getRatioForUser(username: String): Double {
+        val user = getInstagramUser(username)
+        return user.follower_count / user.following_count.toDouble()
+    }
 
+    // copies followers from another user, ignoring:
+    //     users in the blacklist
+    //     users we are already following
+    //     users with a ratio > 0.5
+    fun copyFollowers(username: String, numberToCopy: Int = 200) {
+        val userToCopyFrom = getInstagramUser(username)
+        val otherUsersFollowers = getFollowers(userToCopyFrom)
+
+        val blacklist = getBlacklist()
+        val myFollowerPKs = getFollowers().toList().map { it.pk }
+
+        val usersToFollow = otherUsersFollowers.filter { !blacklist.contains(it.pk) }
+            .filter { !myFollowerPKs.contains(it.pk) }
+            .filter { getRatioForUser(it.username) < 0.5 }
+            .map {
+                followByPK(it.pk)
+                println("following: ${it.pk}")
+                Thread.sleep(1000)
+            }
+            .take(numberToCopy)
+            .toList()
     }
 }
