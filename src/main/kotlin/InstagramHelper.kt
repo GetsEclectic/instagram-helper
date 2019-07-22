@@ -5,6 +5,7 @@ import org.brunocvcunha.instagram4j.requests.InstagramSearchUsernameRequest
 import org.brunocvcunha.instagram4j.requests.InstagramUnfollowRequest
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
+import java.io.File
 
 fun main(args: Array<String>) {
     val instaPW = System.getenv("INSTAPW")
@@ -13,7 +14,7 @@ fun main(args: Array<String>) {
 
     val extendedInstagramUser = instagramHelper.getUser(instaName)
 
-    extendedInstagramUser.unfollowUnfollowers()
+    extendedInstagramUser.pruneMutualFollowers()
 }
 
 class InstagramHelper(val instaName: String, val instaPW: String) {
@@ -33,7 +34,7 @@ class InstagramHelper(val instaName: String, val instaPW: String) {
     }
 }
 
-class ExtendedInstagramUser(val instagramUser: InstagramUser, private val instagram4j: Instagram4j) {
+class ExtendedInstagramUser(val instagramUser: InstagramUser, val instagram4j: Instagram4j) {
     fun getFollowers(): Set<InstagramUserSummary> {
         println("getting followers for: ${instagramUser.username}")
         val followersSet = HashSet<InstagramUserSummary>()
@@ -58,10 +59,10 @@ class ExtendedInstagramUser(val instagramUser: InstagramUser, private val instag
     }
 
     fun getUnfollowerPKs(): List<Long> {
-        val followerPKs = getFollowers().map { it -> it.pk }
+        val followerPKs = getFollowers().map { it.pk }
         println("followers size: ${followerPKs.size}")
 
-        val followingPKs = getFollowing().map { it -> it.pk }
+        val followingPKs = getFollowing().map { it.pk }
         println("following size: ${followingPKs.size}")
 
         val unfollowerPKs = followingPKs.minus(followerPKs)
@@ -70,9 +71,35 @@ class ExtendedInstagramUser(val instagramUser: InstagramUser, private val instag
         return unfollowerPKs
     }
 
+    // unfollows users that aren't following you
     fun unfollowUnfollowers() {
         val unfollowerPKs = getUnfollowerPKs()
 
-        unfollowerPKs.map { it -> instagram4j.sendRequest(InstagramUnfollowRequest(it)) }
+        unfollowerPKs.map {
+            println("unfollowing: $it")
+            instagram4j.sendRequest(InstagramUnfollowRequest(it))
+        }
+
+        File("data/follow_blacklist").appendText(unfollowerPKs.joinToString(postfix = ","))
+    }
+
+    // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
+    fun pruneMutualFollowers() {
+        val following = getFollowing()
+
+        following.map {
+            val followinger = instagram4j.sendRequest(InstagramSearchUsernameRequest(it.username)).user
+            val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
+
+            println("name: ${followinger.username}, followers: ${followinger.follower_count}, ratio: $followerRatio")
+
+            if(followinger.follower_count > 100 && followerRatio < 0.3) {
+                println("unfollowing ${followinger.username}")
+                instagram4j.sendRequest(InstagramUnfollowRequest(followinger.pk))
+
+            }
+
+            Thread.sleep(1000)
+        }
     }
 }
