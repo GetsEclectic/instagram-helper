@@ -7,6 +7,8 @@ import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import java.io.File
 
+const val BLACKLIST_FILE_PATH = "data/follow_blacklist"
+
 fun main() {
     val instaPW = System.getenv("INSTAPW")
     val instaName = System.getenv("INSTANAME")
@@ -24,24 +26,27 @@ class InstagramHelper(instaName: String, instaPW: String) {
         instagram4j.login()
     }
 
-    private val instagramUser =  instagram4j.sendRequest(InstagramSearchUsernameRequest(instaName)).user
+    private val instagramUser =  getInstagramUser(instaName)
 
-    fun getFollowers(): Set<InstagramUserSummary> {
+
+    fun getInstagramUser(name: String): InstagramUser {
+        return instagram4j.sendRequest(InstagramSearchUsernameRequest(name)).user
+    }
+
+    fun getFollowers(instagramUser: InstagramUser = this.instagramUser): Sequence<InstagramUserSummary> {
         println("getting followers for: ${instagramUser.username}")
-        val followersSet = HashSet<InstagramUserSummary>()
-        var nextMaxId: String? = null
 
-        while (true) {
-            val followersResult = instagram4j.sendRequest(InstagramGetUserFollowersRequest(instagramUser.pk, nextMaxId))
-            followersSet.addAll(followersResult.users)
-            nextMaxId = followersResult.next_max_id
+        return sequence {
+            var nextMaxId: String? = null
 
-            if (nextMaxId == null) {
-                break
-            }
+            do {
+                val followersResult = instagram4j.sendRequest(InstagramGetUserFollowersRequest(instagramUser.pk, nextMaxId))
+
+                yieldAll(followersResult.users)
+
+                nextMaxId = followersResult.next_max_id
+            } while (nextMaxId != null)
         }
-
-        return followersSet
     }
 
     fun getFollowing(): Set<InstagramUserSummary> {
@@ -50,7 +55,7 @@ class InstagramHelper(instaName: String, instaPW: String) {
     }
 
     fun getUnfollowerPKs(): List<Long> {
-        val followerPKs = getFollowers().map { it.pk }
+        val followerPKs = getFollowers().map { it.pk }.toHashSet()
         println("followers size: ${followerPKs.size}")
 
         val followingPKs = getFollowing().map { it.pk }
@@ -72,7 +77,7 @@ class InstagramHelper(instaName: String, instaPW: String) {
         }
 
         if( unfollowerPKs.isNotEmpty() ) {
-            File("data/follow_blacklist").appendText(unfollowerPKs.joinToString(postfix = ","))
+            File(BLACKLIST_FILE_PATH).appendText(unfollowerPKs.joinToString(postfix = ","))
         }
     }
 
@@ -94,5 +99,18 @@ class InstagramHelper(instaName: String, instaPW: String) {
 
             Thread.sleep(1000)
         }
+    }
+
+    fun getBlacklist(): HashSet<Long> {
+        val blacklistString = File(BLACKLIST_FILE_PATH).readText()
+        return blacklistString.split(',').map { it.toLong() }.toHashSet()
+    }
+
+    // copies followers from another user, ignoring users in the blacklist, users we are already following, and users with a ratio > 1
+    fun copyFollowers(username: String) {
+        val userToCopyFrom = getInstagramUser(username)
+        val followersToFollow = getFollowers(userToCopyFrom)
+        val blacklist = getBlacklist()
+
     }
 }
