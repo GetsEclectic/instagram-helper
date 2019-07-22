@@ -7,7 +7,7 @@ import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import java.io.File
 
-fun main(args: Array<String>) {
+fun main() {
     val instaPW = System.getenv("INSTAPW")
     val instaName = System.getenv("INSTANAME")
     val instagramHelper = InstagramHelper(instaName, instaPW)
@@ -15,7 +15,7 @@ fun main(args: Array<String>) {
     instagramHelper.unfollowUnfollowers()
 }
 
-class InstagramHelper(val instaName: String, val instaPW: String) {
+class InstagramHelper(instaName: String, instaPW: String) {
 
     private val instagram4j = Instagram4j.builder().username(instaName).password(instaPW).build()
 
@@ -71,7 +71,7 @@ class InstagramHelper(val instaName: String, val instaPW: String) {
             instagram4j.sendRequest(InstagramUnfollowRequest(it))
         }
 
-        if( !unfollowerPKs.isEmpty() ) {
+        if( unfollowerPKs.isNotEmpty() ) {
             File("data/follow_blacklist").appendText(unfollowerPKs.joinToString(postfix = ","))
         }
     }
