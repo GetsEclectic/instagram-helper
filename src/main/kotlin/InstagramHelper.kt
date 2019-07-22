@@ -14,7 +14,7 @@ fun main(args: Array<String>) {
 
     val extendedInstagramUser = instagramHelper.getUser(instaName)
 
-    extendedInstagramUser.pruneMutualFollowers()
+    extendedInstagramUser.unfollowUnfollowers()
 }
 
 class InstagramHelper(val instaName: String, val instaPW: String) {
@@ -80,7 +80,9 @@ class ExtendedInstagramUser(val instagramUser: InstagramUser, val instagram4j: I
             instagram4j.sendRequest(InstagramUnfollowRequest(it))
         }
 
-        File("data/follow_blacklist").appendText(unfollowerPKs.joinToString(postfix = ","))
+        if( !unfollowerPKs.isEmpty() ) {
+            File("data/follow_blacklist").appendText(unfollowerPKs.joinToString(postfix = ","))
+        }
     }
 
     // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
