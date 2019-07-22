@@ -1,5 +1,4 @@
 # instagram4k
-[![Apache License](http://img.shields.io/badge/license-ASL-blue.svg)](https://github.com/brunocvcunha/instagram4j/blob/master/LICENSE)
 
 kotlin instagram library using [instagram4j](https://github.com/brunocvcunha/instagram4j)
 
@@ -12,3 +11,7 @@ kotlin instagram library using [instagram4j](https://github.com/brunocvcunha/ins
 ## Legal
 
 This code is in no way affiliated with, authorized, maintained, sponsored or endorsed by Instagram or any of its affiliates or subsidiaries. This is an independent and unofficial API. Use at your own risk.
+
+## License
+
+This code is released under the [MIT license](https://opensource.org/licenses/MIT).
