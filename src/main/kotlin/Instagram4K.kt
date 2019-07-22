@@ -10,12 +10,12 @@ const val BLACKLIST_FILE_PATH = "data/follow_blacklist"
 fun main() {
     val instaPW = System.getenv("INSTAPW")
     val instaName = System.getenv("INSTANAME")
-    val instagramHelper = InstagramHelper(instaName, instaPW)
+    val instagramHelper = Instagram4K(instaName, instaPW)
 
     println("unfollowers: ${instagramHelper.getUnfollowerPKs().size}")
 }
 
-class InstagramHelper(instaName: String, instaPW: String) {
+class Instagram4K(instaName: String, instaPW: String) {
 
     private val instagram4j = Instagram4j.builder().username(instaName).password(instaPW).build()
 
