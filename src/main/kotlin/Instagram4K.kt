@@ -97,13 +97,17 @@ class Instagram4K(instaName: String, instaPW: String) {
 
     // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
     fun pruneMutualFollowers() {
-        val following = getFollowing()
+        val followingMap = getFollowing().associateBy({it.pk}, {it})
+        val followersMap = getFollowers().associateBy({it.pk}, {it})
 
-        following.map {
-            val followinger = getInstagramUser(it.username)
+        // filter by intersecting keys
+        val mutualFollowersMap = followingMap.filterKeys { followersMap.containsKey(it) }
+
+        println("mutual followers: ${mutualFollowersMap.size}")
+
+        mutualFollowersMap.map {
+            val followinger = getInstagramUser(it.value.username)
             val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
-
-            println("name: ${followinger.username}, followers: ${followinger.follower_count}, ratio: $followerRatio")
 
             if(followinger.follower_count > 100 && followerRatio < 0.3) {
                 println("unfollowing ${followinger.username}")
