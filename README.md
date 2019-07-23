@@ -1,5 +1,7 @@
 # instagram4k
 
+[![MIT License](http://img.shields.io/badge/license-MIT-green.svg)](https://github.com/getseclectic/instagram4k/blob/master/LICENSE) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com) [![Maintainability](https://api.codeclimate.com/v1/badges/7865899a39e952e825d4/maintainability)](https://codeclimate.com/github/GetsEclectic/instagram4k/maintainability) [![Test Coverage](https://api.codeclimate.com/v1/badges/7865899a39e952e825d4/test_coverage)](https://codeclimate.com/github/GetsEclectic/instagram4k/test_coverage)
+
 kotlin instagram library using [instagram4j](https://github.com/brunocvcunha/instagram4j)
 
 ## Examples
