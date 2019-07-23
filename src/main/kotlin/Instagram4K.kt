@@ -12,7 +12,7 @@ fun main() {
     val instaName = System.getenv("INSTANAME")
     val instagram4K = Instagram4K(instaName, instaPW)
 
-    println("unfollowers: ${instagram4K.getUnfollowerPKs().size}")
+    instagram4K.copyFollowers("ragnarpugventures")
 }
 
 class Instagram4K(instaName: String, instaPW: String) {
@@ -70,13 +70,18 @@ class Instagram4K(instaName: String, instaPW: String) {
 
         unfollowerPKs.map {
             println("unfollowing: $it")
-            unfollowByPK(it)
+            val statusResult = unfollowByPK(it)
+
+            if(statusResult.status.equals("fail")) {
+                throw Exception("call failed, are you rate limited?")
+            }
         }
     }
 
-    fun unfollowByPK(pk: Long) {
-        instagram4j.sendRequest(InstagramUnfollowRequest(pk))
+    fun unfollowByPK(pk: Long): StatusResult {
+        val statusResult = instagram4j.sendRequest(InstagramUnfollowRequest(pk))
         File(BLACKLIST_FILE_PATH).appendText("$pk,")
+        return statusResult
     }
 
     fun followByPK(pk: Long): StatusResult {
@@ -95,8 +100,11 @@ class Instagram4K(instaName: String, instaPW: String) {
 
             if(followinger.follower_count > 100 && followerRatio < 0.3) {
                 println("unfollowing ${followinger.username}")
-                unfollowByPK(followinger.pk)
+                val statusResult = unfollowByPK(followinger.pk)
 
+                if(statusResult.status.equals("fail")) {
+                    throw Exception("call failed, are you rate limited?")
+                }
             }
 
             Thread.sleep(1000)
@@ -133,7 +141,7 @@ class Instagram4K(instaName: String, instaPW: String) {
                 val statusResult = followByPK(it.pk)
 
                 if(statusResult.status.equals("fail")) {
-                    throw Exception("follow call failed, are you rate limited?")
+                    throw Exception("call failed, are you rate limited?")
                 }
 
                 Thread.sleep(1000)
