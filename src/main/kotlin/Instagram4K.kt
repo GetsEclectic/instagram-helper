@@ -131,10 +131,10 @@ class Instagram4K(instaName: String, instaPW: String) {
         val otherUsersFollowers = getFollowers(userToCopyFrom)
 
         val blacklist = getBlacklist()
-        val myFollowerPKs = getFollowers().toList().map { it.pk }
+        val myFollowingPKs = getFollowing().toList().map { it.pk }
 
         otherUsersFollowers.filter { !blacklist.contains(it.pk) }
-            .filter { !myFollowerPKs.contains(it.pk) }
+            .filter { !myFollowingPKs.contains(it.pk) }
             .filter { getRatioForUser(it.username) < 0.5 }
             .map {
                 println("following: ${it.pk}")
