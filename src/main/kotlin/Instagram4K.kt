@@ -79,13 +79,28 @@ class Instagram4K(instaName: String, instaPW: String) {
     }
 
     fun unfollowByPK(pk: Long): StatusResult {
-        val statusResult = instagram4j.sendRequest(InstagramUnfollowRequest(pk))
+        val statusResult = sendRequestWithRetry(InstagramUnfollowRequest(pk))
         File(BLACKLIST_FILE_PATH).appendText("$pk,")
         return statusResult
     }
 
     fun followByPK(pk: Long): StatusResult {
-        return instagram4j.sendRequest(InstagramFollowRequest(pk))
+        return sendRequestWithRetry(InstagramFollowRequest(pk))
+    }
+
+    fun <T: StatusResult> sendRequestWithRetry(request: InstagramRequest<T>): T {
+        var statusResult = instagram4j.sendRequest(request)
+
+        // sleep and retry if we got rate limited
+        while(statusResult.status.equals("fail") && statusResult.message.startsWith("Please wait a few minutes")) {
+            val sleepTimeInMinutes = 10.toLong()
+
+            println("got rate limited, sleeping for $sleepTimeInMinutes minutes and retrying")
+            Thread.sleep(sleepTimeInMinutes * 60 * 1000)
+            statusResult = instagram4j.sendRequest(request)
+        }
+
+        return statusResult
     }
 
     // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
@@ -100,11 +115,7 @@ class Instagram4K(instaName: String, instaPW: String) {
 
             if(followinger.follower_count > 100 && followerRatio < 0.3) {
                 println("unfollowing ${followinger.username}")
-                val statusResult = unfollowByPK(followinger.pk)
-
-                if(statusResult.status.equals("fail")) {
-                    throw Exception("call failed, are you rate limited?")
-                }
+                unfollowByPK(followinger.pk)
             }
 
             Thread.sleep(1000)
@@ -138,12 +149,7 @@ class Instagram4K(instaName: String, instaPW: String) {
             .filter { getRatioForUser(it.username) < 0.5 }
             .map {
                 println("following: ${it.pk}")
-                val statusResult = followByPK(it.pk)
-
-                if(statusResult.status.equals("fail")) {
-                    throw Exception("call failed, are you rate limited?")
-                }
-
+                followByPK(it.pk)
                 Thread.sleep(1000)
             }
             .take(numberToCopy)
