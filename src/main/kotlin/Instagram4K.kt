@@ -1,20 +1,19 @@
+import org.apache.http.impl.client.HttpClientBuilder
 import org.brunocvcunha.instagram4j.Instagram4j
 import org.brunocvcunha.instagram4j.requests.*
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import org.brunocvcunha.instagram4j.requests.payload.StatusResult
 import java.io.File
+import org.apache.http.client.config.RequestConfig
+
+
 
 const val BLACKLIST_FILE_PATH = "data/follow_blacklist"
 
 class Instagram4K(instaName: String, instaPW: String) {
 
-    private val instagram4j = Instagram4j.builder().username(instaName).password(instaPW).build()
-
-    init {
-        instagram4j.setup()
-        instagram4j.login()
-    }
+    private val instagram4j = Instagram4jWithTimeout(instaName, instaPW)
 
     private val instagramUser =  getInstagramUser(instaName)
 
@@ -150,5 +149,31 @@ class Instagram4K(instaName: String, instaPW: String) {
             }
             .take(numberToCopy)
             .toList()
+    }
+}
+
+// Instagram4j with a 30 second socket timeout on the http client
+class Instagram4jWithTimeout(username: String, password: String): Instagram4j(username, password) {
+    init {
+        setup()
+
+        val requestConfig =
+            RequestConfig.custom().setSocketTimeout(30000)
+                .build()
+        val builder = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig)
+
+        if (proxy != null) {
+            builder.setProxy(proxy)
+        }
+
+        if(credentialsProvider != null) {
+            builder.setDefaultCredentialsProvider(credentialsProvider)
+        }
+
+        builder.setDefaultCookieStore(this.cookieStore)
+
+        this.client = builder.build()
+
+        login()
     }
 }
