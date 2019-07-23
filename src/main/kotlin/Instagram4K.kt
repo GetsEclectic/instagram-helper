@@ -7,14 +7,6 @@ import java.io.File
 
 const val BLACKLIST_FILE_PATH = "data/follow_blacklist"
 
-fun main() {
-    val instaPW = System.getenv("INSTAPW")
-    val instaName = System.getenv("INSTANAME")
-    val instagram4K = Instagram4K(instaName, instaPW)
-
-    instagram4K.copyFollowers("ragnarpugventures")
-}
-
 class Instagram4K(instaName: String, instaPW: String) {
 
     private val instagram4j = Instagram4j.builder().username(instaName).password(instaPW).build()
