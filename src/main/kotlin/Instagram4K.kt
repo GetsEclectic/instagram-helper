@@ -61,11 +61,7 @@ class Instagram4K(instaName: String, instaPW: String) {
 
         unfollowerPKs.map {
             println("unfollowing: $it")
-            val statusResult = unfollowByPK(it)
-
-            if(statusResult.status.equals("fail")) {
-                throw Exception("call failed, are you rate limited?")
-            }
+            unfollowByPK(it)
         }
     }
 
