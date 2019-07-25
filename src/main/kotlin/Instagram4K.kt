@@ -6,7 +6,7 @@ import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import org.brunocvcunha.instagram4j.requests.payload.StatusResult
 import java.io.File
 import org.apache.http.client.config.RequestConfig
-
+import javax.net.ssl.SSLProtocolException
 
 
 const val BLACKLIST_FILE_PATH = "data/follow_blacklist"
@@ -20,7 +20,7 @@ class Instagram4K(instaName: String, instaPW: String) {
 
     fun getInstagramUser(name: String): InstagramUser {
         Thread.sleep(1000)
-        return instagram4j.sendRequest(InstagramSearchUsernameRequest(name)).user
+        return sendRequestWithRetry(InstagramSearchUsernameRequest(name)).user
     }
 
     fun getFollowers(instagramUser: InstagramUser = this.instagramUser): Sequence<InstagramUserSummary> {
@@ -30,7 +30,7 @@ class Instagram4K(instaName: String, instaPW: String) {
             var nextMaxId: String? = null
 
             do {
-                val followersResult = instagram4j.sendRequest(InstagramGetUserFollowersRequest(instagramUser.pk, nextMaxId))
+                val followersResult = sendRequestWithRetry(InstagramGetUserFollowersRequest(instagramUser.pk, nextMaxId))
                 yieldAll(followersResult.users)
                 nextMaxId = followersResult.next_max_id
             } while (nextMaxId != null)
@@ -39,7 +39,7 @@ class Instagram4K(instaName: String, instaPW: String) {
 
     fun getFollowing(): Set<InstagramUserSummary> {
         println("getting following for: ${instagramUser.username}")
-        return HashSet(instagram4j.sendRequest(InstagramGetUserFollowingRequest(instagramUser.pk)).getUsers())
+        return HashSet(sendRequestWithRetry(InstagramGetUserFollowingRequest(instagramUser.pk)).getUsers())
     }
 
     fun getUnfollowerPKs(): List<Long> {
@@ -75,19 +75,46 @@ class Instagram4K(instaName: String, instaPW: String) {
         return sendRequestWithRetry(InstagramFollowRequest(pk))
     }
 
+    enum class RequestStatus {
+        SUCCESS, FAIL_RATE_LIMIT, FAIL_SOCKET_TIMEOUT
+    }
+
+    data class Instagram4JResult<T>(val statusResult: T?, val requestStatus: RequestStatus)
+
+    // // sleep and retry if we got rate limited or got a socket timeout
     fun <T: StatusResult> sendRequestWithRetry(request: InstagramRequest<T>): T {
-        var statusResult = instagram4j.sendRequest(request)
+        var instagram4JResult: Instagram4JResult<T>
 
-        // sleep and retry if we got rate limited
-        while(statusResult.status.equals("fail") && statusResult.message.startsWith("Please wait a few minutes")) {
-            val sleepTimeInMinutes = 10.toLong()
+        do {
+            instagram4JResult = sendRequestWithCatchSSLProtocolException(request)
 
-            println("got rate limited, sleeping for $sleepTimeInMinutes minutes and retrying")
-            Thread.sleep(sleepTimeInMinutes * 60 * 1000)
+            if(instagram4JResult.requestStatus == RequestStatus.FAIL_RATE_LIMIT) {
+                val sleepTimeInMinutes = 10.toLong()
+                println("got rate limited, sleeping for $sleepTimeInMinutes minutes and retrying")
+                Thread.sleep(sleepTimeInMinutes * 60 * 1000)
+            } else if (instagram4JResult.requestStatus == RequestStatus.FAIL_SOCKET_TIMEOUT) {
+                println("socket timeout, retrying")
+            }
+        } while(instagram4JResult.requestStatus != RequestStatus.SUCCESS)
+
+        return instagram4JResult.statusResult!!
+    }
+
+    // returns a StatusResult if the call was successful, returns null if it was rate limited or encountered an exception
+    fun <T: StatusResult> sendRequestWithCatchSSLProtocolException(request: InstagramRequest<T>): Instagram4JResult<T> {
+        val statusResult: T?
+
+        try {
             statusResult = instagram4j.sendRequest(request)
+
+            if(statusResult.status.equals("fail") && statusResult.message.startsWith("Please wait a few minutes")) {
+                return Instagram4JResult(statusResult, RequestStatus.FAIL_RATE_LIMIT)
+            }
+        } catch (e: SSLProtocolException) {
+            return Instagram4JResult(null, RequestStatus.FAIL_SOCKET_TIMEOUT)
         }
 
-        return statusResult
+        return Instagram4JResult(statusResult, RequestStatus.SUCCESS)
     }
 
     // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
