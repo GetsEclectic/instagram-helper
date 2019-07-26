@@ -6,6 +6,8 @@ import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import org.brunocvcunha.instagram4j.requests.payload.StatusResult
 import java.io.File
 import org.apache.http.client.config.RequestConfig
+import java.lang.Exception
+import java.net.SocketException
 import javax.net.ssl.SSLProtocolException
 
 
@@ -76,7 +78,7 @@ class Instagram4K(instaName: String, instaPW: String) {
     }
 
     enum class RequestStatus {
-        SUCCESS, FAIL_RATE_LIMIT, FAIL_SOCKET_TIMEOUT
+        SUCCESS, FAIL_RATE_LIMIT, FAIL_NETWORK_EXCEPTION
     }
 
     data class Instagram4JResult<T>(val statusResult: T?, val requestStatus: RequestStatus)
@@ -86,22 +88,24 @@ class Instagram4K(instaName: String, instaPW: String) {
         var instagram4JResult: Instagram4JResult<T>
 
         do {
-            instagram4JResult = sendRequestWithCatchSSLProtocolException(request)
+            instagram4JResult = sendRequestWithCatchNetworkExceptions(request)
 
             if(instagram4JResult.requestStatus == RequestStatus.FAIL_RATE_LIMIT) {
                 val sleepTimeInMinutes = 10.toLong()
                 println("got rate limited, sleeping for $sleepTimeInMinutes minutes and retrying")
                 Thread.sleep(sleepTimeInMinutes * 60 * 1000)
-            } else if (instagram4JResult.requestStatus == RequestStatus.FAIL_SOCKET_TIMEOUT) {
-                println("socket timeout, retrying")
+            } else if (instagram4JResult.requestStatus == RequestStatus.FAIL_NETWORK_EXCEPTION) {
+                val sleepTimeInSeconds = 5.toLong()
+                println("network issue, sleeping for $sleepTimeInSeconds seconds and retrying")
+                Thread.sleep(sleepTimeInSeconds * 1000)
             }
         } while(instagram4JResult.requestStatus != RequestStatus.SUCCESS)
 
         return instagram4JResult.statusResult!!
     }
 
-    // returns a StatusResult if the call was successful, returns null if it was rate limited or encountered an exception
-    fun <T: StatusResult> sendRequestWithCatchSSLProtocolException(request: InstagramRequest<T>): Instagram4JResult<T> {
+    // returns a StatusResult if the call was successful, returns null if it was rate limited or encountered a network exception
+    fun <T: StatusResult> sendRequestWithCatchNetworkExceptions(request: InstagramRequest<T>): Instagram4JResult<T> {
         val statusResult: T?
 
         try {
@@ -110,8 +114,13 @@ class Instagram4K(instaName: String, instaPW: String) {
             if(statusResult.status.equals("fail") && statusResult.message.startsWith("Please wait a few minutes")) {
                 return Instagram4JResult(statusResult, RequestStatus.FAIL_RATE_LIMIT)
             }
-        } catch (e: SSLProtocolException) {
-            return Instagram4JResult(null, RequestStatus.FAIL_SOCKET_TIMEOUT)
+        } catch (e: Exception) {
+            when(e) {
+                is SSLProtocolException, is SocketException -> {
+                    return Instagram4JResult(null, RequestStatus.FAIL_NETWORK_EXCEPTION)
+                }
+                else -> throw e
+            }
         }
 
         return Instagram4JResult(statusResult, RequestStatus.SUCCESS)
