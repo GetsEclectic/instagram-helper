@@ -67,13 +67,17 @@ class Instagram4K(instaName: String, instaPW: String) {
         }
     }
 
+    fun addToBlacklist(pk: Long) {
+        File(BLACKLIST_FILE_PATH).appendText("$pk,")
+    }
+
     fun unfollowByPK(pk: Long): StatusResult {
         val statusResult = sendRequestWithRetry(InstagramUnfollowRequest(pk))
-        File(BLACKLIST_FILE_PATH).appendText("$pk,")
         return statusResult
     }
 
     fun followByPK(pk: Long): StatusResult {
+        addToBlacklist(pk)
         return sendRequestWithRetry(InstagramFollowRequest(pk))
     }
 
