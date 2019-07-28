@@ -8,6 +8,7 @@ import java.io.File
 import org.apache.http.client.config.RequestConfig
 import java.lang.Exception
 import java.net.SocketException
+import java.net.SocketTimeoutException
 import javax.net.ssl.SSLProtocolException
 
 
@@ -120,7 +121,7 @@ class Instagram4K(instaName: String, instaPW: String) {
             }
         } catch (e: Exception) {
             when(e) {
-                is SSLProtocolException, is SocketException -> {
+                is SSLProtocolException, is SocketException, is SocketTimeoutException -> {
                     return Instagram4JResult(null, RequestStatus.FAIL_NETWORK_EXCEPTION)
                 }
                 else -> throw e
