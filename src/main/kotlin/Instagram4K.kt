@@ -78,7 +78,6 @@ class Instagram4K(instaName: String, instaPW: String) {
     }
 
     fun followByPK(pk: Long): StatusResult {
-        addToBlacklist(pk)
         return sendRequestWithRetry(InstagramFollowRequest(pk))
     }
 
@@ -178,6 +177,11 @@ class Instagram4K(instaName: String, instaPW: String) {
 
         otherUsersFollowers.filter { !blacklist.contains(it.pk) }
             .filter { !myFollowingPKs.contains(it.pk) }
+            .map {
+                // blacklist everyone we scan, saves us from having to calculate a ratio every time we see them
+                addToBlacklist(it.pk)
+                it
+            }
             .filter { getRatioForUser(it.username) < 0.5 }
             .map {
                 println("following: ${it.pk}")
