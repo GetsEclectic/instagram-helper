@@ -13,6 +13,7 @@ import javax.net.ssl.SSLProtocolException
 
 
 const val BLACKLIST_FILE_PATH = "data/follow_blacklist"
+const val WHITELIST_FILE_PATH = "data/unfollow_whitelist"
 
 class Instagram4K(instaName: String, instaPW: String) {
 
@@ -140,23 +141,32 @@ class Instagram4K(instaName: String, instaPW: String) {
 
         println("mutual followers: ${mutualFollowersMap.size}")
 
-        mutualFollowersMap.map {
-            val followinger = getInstagramUser(it.value.username)
-            val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
+        val whitelist = getWhitelist()
 
-            if(followinger.follower_count > 100 && followerRatio < 0.3) {
-                println("unfollowing ${followinger.username}")
-                unfollowByPK(followinger.pk)
+        mutualFollowersMap.filter { !whitelist.contains(it.value.pk) }
+            .map {
+                val followinger = getInstagramUser(it.value.username)
+                val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
+
+                if(followinger.follower_count > 100 && followerRatio < 0.3) {
+                    println("unfollowing ${followinger.username}")
+                    unfollowByPK(followinger.pk)
+                }
+
+                Thread.sleep(1000)
             }
-
-            Thread.sleep(1000)
-        }
     }
 
     fun getBlacklist(): HashSet<Long> {
         val blacklistString = File(BLACKLIST_FILE_PATH).readText()
         // always ends in a comma, so drop the last item
         return blacklistString.split(',').dropLast(1).map { it.toLong() }.toHashSet()
+    }
+
+    fun getWhitelist(): HashSet<Long> {
+        val whitelistString = File(WHITELIST_FILE_PATH).readText()
+        // always ends in a comma, so drop the last item
+        return whitelistString.split(',').dropLast(1).map { it.toLong() }.toHashSet()
     }
 
     fun getRatioForUser(username: String): Double {
