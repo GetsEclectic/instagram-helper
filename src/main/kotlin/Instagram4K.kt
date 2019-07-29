@@ -1,56 +1,17 @@
-import org.apache.http.impl.client.HttpClientBuilder
-import org.brunocvcunha.instagram4j.Instagram4j
-import org.brunocvcunha.instagram4j.requests.*
-import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
-import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
-import org.brunocvcunha.instagram4j.requests.payload.StatusResult
 import java.io.File
-import org.apache.http.client.config.RequestConfig
-import java.lang.Exception
-import java.net.SocketException
-import java.net.SocketTimeoutException
-import javax.net.ssl.SSLProtocolException
 
 
 const val BLACKLIST_FILE_PATH = "data/follow_blacklist"
 const val WHITELIST_FILE_PATH = "data/unfollow_whitelist"
 
 class Instagram4K(instaName: String, instaPW: String) {
-
-    private val instagram4j = Instagram4jWithTimeout(instaName, instaPW)
-
-    private val instagramUser =  getInstagramUser(instaName)
-
-
-    fun getInstagramUser(name: String): InstagramUser {
-        Thread.sleep(1000)
-        return sendRequestWithRetry(InstagramSearchUsernameRequest(name)).user
-    }
-
-    fun getFollowers(instagramUser: InstagramUser = this.instagramUser): Sequence<InstagramUserSummary> {
-        println("getting followers for: ${instagramUser.username}")
-
-        return sequence {
-            var nextMaxId: String? = null
-
-            do {
-                val followersResult = sendRequestWithRetry(InstagramGetUserFollowersRequest(instagramUser.pk, nextMaxId))
-                yieldAll(followersResult.users)
-                nextMaxId = followersResult.next_max_id
-            } while (nextMaxId != null)
-        }
-    }
-
-    fun getFollowing(): Set<InstagramUserSummary> {
-        println("getting following for: ${instagramUser.username}")
-        return HashSet(sendRequestWithRetry(InstagramGetUserFollowingRequest(instagramUser.pk)).getUsers())
-    }
+    private val apiClient = ApiClient(instaName, instaPW)
 
     fun getUnfollowerPKs(): List<Long> {
-        val followerPKs = getFollowers().map { it.pk }.toHashSet()
+        val followerPKs = apiClient.getFollowers().map { it.pk }.toHashSet()
         println("followers size: ${followerPKs.size}")
 
-        val followingPKs = getFollowing().map { it.pk }
+        val followingPKs = apiClient.getFollowing().map { it.pk }
         println("following size: ${followingPKs.size}")
 
         val unfollowerPKs = followingPKs.minus(followerPKs)
@@ -65,7 +26,7 @@ class Instagram4K(instaName: String, instaPW: String) {
 
         unfollowerPKs.map {
             println("unfollowing: $it")
-            unfollowByPK(it)
+            apiClient.unfollowByPK(it)
         }
     }
 
@@ -73,68 +34,10 @@ class Instagram4K(instaName: String, instaPW: String) {
         File(BLACKLIST_FILE_PATH).appendText("$pk,")
     }
 
-    fun unfollowByPK(pk: Long): StatusResult {
-        val statusResult = sendRequestWithRetry(InstagramUnfollowRequest(pk))
-        return statusResult
-    }
-
-    fun followByPK(pk: Long): StatusResult {
-        return sendRequestWithRetry(InstagramFollowRequest(pk))
-    }
-
-    enum class RequestStatus {
-        SUCCESS, FAIL_RATE_LIMIT, FAIL_NETWORK_EXCEPTION
-    }
-
-    data class Instagram4JResult<T>(val statusResult: T?, val requestStatus: RequestStatus)
-
-    // // sleep and retry if we got rate limited or got a socket timeout
-    fun <T: StatusResult> sendRequestWithRetry(request: InstagramRequest<T>): T {
-        var instagram4JResult: Instagram4JResult<T>
-
-        do {
-            instagram4JResult = sendRequestWithCatchNetworkExceptions(request)
-
-            if(instagram4JResult.requestStatus == RequestStatus.FAIL_RATE_LIMIT) {
-                val sleepTimeInMinutes = 10.toLong()
-                println("got rate limited, sleeping for $sleepTimeInMinutes minutes and retrying")
-                Thread.sleep(sleepTimeInMinutes * 60 * 1000)
-            } else if (instagram4JResult.requestStatus == RequestStatus.FAIL_NETWORK_EXCEPTION) {
-                val sleepTimeInSeconds = 5.toLong()
-                println("network issue, sleeping for $sleepTimeInSeconds seconds and retrying")
-                Thread.sleep(sleepTimeInSeconds * 1000)
-            }
-        } while(instagram4JResult.requestStatus != RequestStatus.SUCCESS)
-
-        return instagram4JResult.statusResult!!
-    }
-
-    // returns a StatusResult if the call was successful, returns null if it was rate limited or encountered a network exception
-    fun <T: StatusResult> sendRequestWithCatchNetworkExceptions(request: InstagramRequest<T>): Instagram4JResult<T> {
-        val statusResult: T?
-
-        try {
-            statusResult = instagram4j.sendRequest(request)
-
-            if(statusResult.status.equals("fail") && statusResult.message.startsWith("Please wait a few minutes")) {
-                return Instagram4JResult(statusResult, RequestStatus.FAIL_RATE_LIMIT)
-            }
-        } catch (e: Exception) {
-            when(e) {
-                is SSLProtocolException, is SocketException, is SocketTimeoutException -> {
-                    return Instagram4JResult(null, RequestStatus.FAIL_NETWORK_EXCEPTION)
-                }
-                else -> throw e
-            }
-        }
-
-        return Instagram4JResult(statusResult, RequestStatus.SUCCESS)
-    }
-
     // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
     fun pruneMutualFollowers() {
-        val followingMap = getFollowing().associateBy({it.pk}, {it})
-        val followersMap = getFollowers().associateBy({it.pk}, {it})
+        val followingMap = apiClient.getFollowing().associateBy({it.pk}, {it})
+        val followersMap = apiClient.getFollowers().associateBy({it.pk}, {it})
 
         // filter by intersecting keys
         val mutualFollowersMap = followingMap.filterKeys { followersMap.containsKey(it) }
@@ -145,12 +48,12 @@ class Instagram4K(instaName: String, instaPW: String) {
 
         mutualFollowersMap.filter { !whitelist.contains(it.value.pk) }
             .map {
-                val followinger = getInstagramUser(it.value.username)
+                val followinger = apiClient.getInstagramUser(it.value.username)
                 val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
 
                 if(followinger.follower_count > 100 && followerRatio < 0.3) {
                     println("unfollowing ${followinger.username}")
-                    unfollowByPK(followinger.pk)
+                    apiClient.unfollowByPK(followinger.pk)
                 }
 
                 Thread.sleep(1000)
@@ -170,7 +73,7 @@ class Instagram4K(instaName: String, instaPW: String) {
     }
 
     fun getRatioForUser(username: String): Double {
-        val user = getInstagramUser(username)
+        val user = apiClient.getInstagramUser(username)
         return user.follower_count / user.following_count.toDouble()
     }
 
@@ -179,11 +82,11 @@ class Instagram4K(instaName: String, instaPW: String) {
     //     users we are already following
     //     users with a ratio > 0.5
     fun copyFollowers(username: String, numberToCopy: Int = 200) {
-        val userToCopyFrom = getInstagramUser(username)
-        val otherUsersFollowers = getFollowers(userToCopyFrom)
+        val userToCopyFrom = apiClient.getInstagramUser(username)
+        val otherUsersFollowers = apiClient.getFollowers(userToCopyFrom)
 
         val blacklist = getBlacklist()
-        val myFollowingPKs = getFollowing().toList().map { it.pk }
+        val myFollowingPKs = apiClient.getFollowing().toList().map { it.pk }
 
         otherUsersFollowers.filter { !blacklist.contains(it.pk) }
             .filter { !myFollowingPKs.contains(it.pk) }
@@ -195,36 +98,10 @@ class Instagram4K(instaName: String, instaPW: String) {
             .filter { getRatioForUser(it.username) < 0.5 }
             .map {
                 println("following: ${it.pk}")
-                followByPK(it.pk)
+                apiClient.followByPK(it.pk)
                 Thread.sleep(1000)
             }
             .take(numberToCopy)
             .toList()
-    }
-}
-
-// Instagram4j with a 30 second socket timeout on the http client
-class Instagram4jWithTimeout(username: String, password: String): Instagram4j(username, password) {
-    init {
-        setup()
-
-        val requestConfig =
-            RequestConfig.custom().setSocketTimeout(30000)
-                .build()
-        val builder = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig)
-
-        if (proxy != null) {
-            builder.setProxy(proxy)
-        }
-
-        if(credentialsProvider != null) {
-            builder.setDefaultCredentialsProvider(credentialsProvider)
-        }
-
-        builder.setDefaultCookieStore(this.cookieStore)
-
-        this.client = builder.build()
-
-        login()
     }
 }

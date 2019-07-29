@@ -3,7 +3,8 @@ import org.junit.jupiter.api.Test
 
 internal class Instagram4KTest {
     @Test
-    fun `my first test`() {
-        assertEquals(1, 1, "should be equal")
+    fun `unfollowUnfollowers should call unfollowByPK for users that are in the following list but not the follower list`() {
+        val zeroInsta = Instagram4K("username", "password")
+        zeroInsta.unfollowUnfollowers()
     }
 }
