@@ -12,7 +12,7 @@ import javax.net.ssl.SSLProtocolException
 
 // this class holds the functions that call Instagram4J and do simple result processing
 class ApiClient(instaName: String, instaPW: String) {
-    private val instagram4j = Instagram4jWithTimeout(instaName, instaPW)
+    private val instagram4j = Instagram4JWithTimeout(instaName, instaPW)
     private val instagramUser =  getInstagramUser(instaName)
 
     enum class RequestStatus {
@@ -99,7 +99,7 @@ class ApiClient(instaName: String, instaPW: String) {
 }
 
 // Instagram4j with a 30 second socket timeout on the http client
-class Instagram4jWithTimeout(username: String, password: String): Instagram4j(username, password) {
+class Instagram4JWithTimeout(username: String, password: String): Instagram4j(username, password) {
     init {
         setup()
 

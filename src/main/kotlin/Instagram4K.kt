@@ -24,7 +24,8 @@ class Instagram4K(private val apiClient: ApiClient) {
     fun unfollowUnfollowers() {
         val unfollowerPKs = getUnfollowerPKs()
 
-        unfollowerPKs.map {
+        unfollowerPKs.filter { !getWhitelist().contains(it) }
+            .map {
             println("unfollowing: $it")
             apiClient.unfollowByPK(it)
         }
