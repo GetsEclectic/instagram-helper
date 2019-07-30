@@ -153,5 +153,15 @@ internal class Instagram4KTest {
 
             assertThat(ratio).isEqualTo(0.5)
         }
+
+        @Test
+        fun `getRatioForUser should return 2 for a user who is following 1 person and followed by 2 people`() {
+            val username = "Alice"
+            every { apiClient.getInstagramUser(username)} returns (createInstagramUser(followingCount = 1, followerCount = 2))
+
+            val ratio = testObject.getRatioForUser(username)
+
+            assertThat(ratio).isEqualTo(2.toDouble())
+        }
     }
 }
