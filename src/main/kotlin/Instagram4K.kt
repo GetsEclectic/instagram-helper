@@ -34,6 +34,14 @@ class Instagram4K(instaName: String, instaPW: String) {
         File(BLACKLIST_FILE_PATH).appendText("$pk,")
     }
 
+    // follows a user and adds them to the whitelist, so they are never automatically unfollowed
+    fun addToWhitelist(username: String) {
+        println("whitelisting: $username")
+        val pk = apiClient.getInstagramUser(username).pk
+        apiClient.followByPK(pk)
+        File(WHITELIST_FILE_PATH).appendText("$pk,")
+    }
+
     // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
     fun pruneMutualFollowers() {
         val followingMap = apiClient.getFollowing().associateBy({it.pk}, {it})
