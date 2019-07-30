@@ -1,44 +1,36 @@
-import com.nhaarman.mockitokotlin2.whenever
+import io.mockk.every
+import io.mockk.mockk
+import org.assertj.core.api.Assertions.assertThat
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.Mock
-import org.mockito.MockitoAnnotations
+import org.junit.jupiter.api.TestInstance
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class Instagram4KTest {
-    @BeforeEach
-    fun setUp() {
-        MockitoAnnotations.initMocks(this)
-        testObject = Instagram4K(this.apiClient)
-    }
+    val apiClient: ApiClient = mockk()
 
-    @Mock
-    lateinit var apiClient: ApiClient
-
-    lateinit var testObject: Instagram4K
+    val testObject: Instagram4K = Instagram4K(apiClient)
 
     @Test
-    fun `getUnfollowerPKs should return users that are in the following list but not the follower list`() {
-
-//        whenever(apiClient.getInstagramUser(any())).thenReturn(InstagramUser())
-
+    fun `getUnfollowerPKs should return only users that are in the following list but not the follower list`() {
         val instagramUserSummary1 = InstagramUserSummary()
         instagramUserSummary1.pk = 1
         val instagramUserSummary2 = InstagramUserSummary()
         instagramUserSummary2.pk = 2
 
-        whenever(apiClient.getFollowers()).thenReturn(
+        every { apiClient.getFollowers() } returns (
             sequence {
                 yieldAll(listOf(instagramUserSummary1))
             }
         )
 
-        whenever(apiClient.getFollowing()).thenReturn(
+        every { apiClient.getFollowing() } returns (
             setOf(instagramUserSummary1, instagramUserSummary2)
         )
 
         val unfollowerPKs = testObject.getUnfollowerPKs()
-        assertEquals(listOf(2.toLong()), unfollowerPKs, "should contain only 2")
+        assertThat(unfollowerPKs).containsExactly(
+            2.toLong()
+        )
     }
 }
