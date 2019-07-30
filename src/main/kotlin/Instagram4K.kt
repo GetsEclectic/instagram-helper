@@ -69,13 +69,15 @@ class Instagram4K(private val apiClient: ApiClient) {
     }
 
     fun getBlacklist(): HashSet<Long> {
-        val blacklistString = File(BLACKLIST_FILE_PATH).readText()
-        // always ends in a comma, so drop the last item
-        return blacklistString.split(',').dropLast(1).map { it.toLong() }.toHashSet()
+        return csvFilenameToHashSet(BLACKLIST_FILE_PATH)
     }
 
     fun getWhitelist(): HashSet<Long> {
-        val whitelistString = File(WHITELIST_FILE_PATH).readText()
+        return csvFilenameToHashSet(WHITELIST_FILE_PATH)
+    }
+
+    fun csvFilenameToHashSet(fileName: String): HashSet<Long> {
+        val whitelistString = File(fileName).readText()
         // always ends in a comma, so drop the last item
         return whitelistString.split(',').dropLast(1).map { it.toLong() }.toHashSet()
     }
