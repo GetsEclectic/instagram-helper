@@ -1,24 +1,21 @@
 import com.nhaarman.mockitokotlin2.whenever
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.MockitoAnnotations
-import org.mockito.Spy
 
 internal class Instagram4KTest {
     @BeforeEach
     fun setUp() {
         MockitoAnnotations.initMocks(this)
+        testObject = Instagram4K(this.apiClient)
     }
 
     @Mock
     lateinit var apiClient: ApiClient
 
-    @Spy
-    @InjectMocks
     lateinit var testObject: Instagram4K
 
     @Test
@@ -42,6 +39,6 @@ internal class Instagram4KTest {
         )
 
         val unfollowerPKs = testObject.getUnfollowerPKs()
-        assertTrue(unfollowerPKs.equals(listOf(2)), "should contain only 2")
+        assertEquals(listOf(2.toLong()), unfollowerPKs, "should contain only 2")
     }
 }

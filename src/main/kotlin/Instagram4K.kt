@@ -4,8 +4,8 @@ import java.io.File
 const val BLACKLIST_FILE_PATH = "data/follow_blacklist"
 const val WHITELIST_FILE_PATH = "data/unfollow_whitelist"
 
-class Instagram4K(instaName: String, instaPW: String) {
-    private val apiClient = ApiClient(instaName, instaPW)
+class Instagram4K(private val apiClient: ApiClient) {
+    constructor(instaName: String, instaPW: String) : this(ApiClient(instaName, instaPW))
 
     fun getUnfollowerPKs(): List<Long> {
         val followerPKs = apiClient.getFollowers().map { it.pk }.toHashSet()
