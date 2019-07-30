@@ -3,6 +3,7 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
+import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import org.brunocvcunha.instagram4j.requests.payload.StatusResult
 import org.junit.jupiter.api.Nested
@@ -20,6 +21,14 @@ internal class Instagram4KTest {
         val instagramUserSummary = InstagramUserSummary()
         instagramUserSummary.pk = pk
         return instagramUserSummary
+    }
+
+    fun createInstagramUser(pk: Long = 1, followerCount: Int = 0, followingCount: Int = 0): InstagramUser {
+        val instagramUser = InstagramUser()
+        instagramUser.pk = pk
+        instagramUser.follower_count = followerCount
+        instagramUser.following_count = followingCount
+        return instagramUser
     }
 
     @Nested
@@ -69,6 +78,80 @@ internal class Instagram4KTest {
             testObject.unfollowUnfollowers()
 
             verify(exactly = 0) { apiClient.unfollowByPK(any()) }
+        }
+    }
+
+    @Nested
+    inner class ListTest {
+        init {
+            mockkStatic("kotlin.io.FilesKt__FileReadWriteKt")
+
+            every { File(BLACKLIST_FILE_PATH).appendText(any()) } returns (Unit)
+            every { File(WHITELIST_FILE_PATH).appendText(any()) } returns (Unit)
+        }
+
+        @Test
+        fun `addToBlacklist should append the pk followed by a comma to the blacklist file`() {
+            val pk = 1.toLong()
+            testObject.addToBlacklist(pk)
+
+            verify { File(BLACKLIST_FILE_PATH).appendText("$pk,") }
+        }
+
+        @Test
+        fun `addToWhitelist should call followByPK and append the pk for the user followed by a comma to the whitelist file`() {
+            val username = "Alice"
+            val pk = 2.toLong()
+
+            every { apiClient.getInstagramUser(username) } returns (
+                    createInstagramUser(pk = pk)
+                    )
+
+            every { apiClient.followByPK(any()) } returns (StatusResult())
+
+            testObject.addToWhitelist(username)
+
+            verify {
+                File(WHITELIST_FILE_PATH).appendText("$pk,")
+                apiClient.followByPK(pk)
+            }
+        }
+
+        @Test
+        fun `getBlacklist should turn "1,2," into a HashSet containing 1 and 2`() {
+            every { File(BLACKLIST_FILE_PATH).readText() } returns ("1,2,")
+
+            val blackList = testObject.getBlacklist()
+
+            assertThat(blackList).containsExactlyInAnyOrder(
+                1.toLong(),
+                2.toLong()
+            )
+        }
+
+        @Test
+        fun `getWhitelist should turn "3,4," into a HashSet containing 3 and 4`() {
+            every { File(WHITELIST_FILE_PATH).readText() } returns ("3,4,")
+
+            val whiteList = testObject.getWhitelist()
+
+            assertThat(whiteList).containsExactlyInAnyOrder(
+                3.toLong(),
+                4.toLong()
+            )
+        }
+    }
+
+    @Nested
+    inner class RatioTest {
+        @Test
+        fun `getRatioForUser should return one half for a user who is following 2 people and followed by 1 person`() {
+            val username = "Alice"
+            every { apiClient.getInstagramUser(username)} returns (createInstagramUser(followingCount = 2, followerCount = 1))
+
+            val ratio = testObject.getRatioForUser(username)
+
+            assertThat(ratio).isEqualTo(0.5)
         }
     }
 }
