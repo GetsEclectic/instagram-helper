@@ -32,7 +32,7 @@ class Instagram4K(private val apiClient: ApiClient) {
     }
 
     fun addToBlacklist(pk: Long) {
-        File(BLACKLIST_FILE_PATH).appendText("$pk,")
+        File(BLACKLIST_FILE_PATH).appendText("$pk\n")
     }
 
     // follows a user and adds them to the whitelist, so they are never automatically unfollowed
@@ -40,7 +40,7 @@ class Instagram4K(private val apiClient: ApiClient) {
         println("whitelisting: $username")
         val pk = apiClient.getInstagramUser(username).pk
         apiClient.followByPK(pk)
-        File(WHITELIST_FILE_PATH).appendText("$pk,")
+        File(WHITELIST_FILE_PATH).appendText("$pk\n")
     }
 
     // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
@@ -53,9 +53,7 @@ class Instagram4K(private val apiClient: ApiClient) {
 
         println("mutual followers: ${mutualFollowersMap.size}")
 
-        val whitelist = getWhitelist()
-
-        mutualFollowersMap.filter { !whitelist.contains(it.value.pk) }
+        mutualFollowersMap.filter { !getWhitelist().contains(it.value.pk) }
             .map {
                 val followinger = apiClient.getInstagramUser(it.value.username)
                 val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
@@ -70,17 +68,16 @@ class Instagram4K(private val apiClient: ApiClient) {
     }
 
     fun getBlacklist(): HashSet<Long> {
-        return csvFilenameToHashSet(BLACKLIST_FILE_PATH)
+        return newlineDelimitedFilenameToHashSet(BLACKLIST_FILE_PATH)
     }
 
     fun getWhitelist(): HashSet<Long> {
-        return csvFilenameToHashSet(WHITELIST_FILE_PATH)
+        return newlineDelimitedFilenameToHashSet(WHITELIST_FILE_PATH)
     }
 
-    fun csvFilenameToHashSet(fileName: String): HashSet<Long> {
-        val whitelistString = File(fileName).readText()
-        // always ends in a comma, so drop the last item
-        return whitelistString.split(',').dropLast(1).map { it.toLong() }.toHashSet()
+    fun newlineDelimitedFilenameToHashSet(fileName: String): HashSet<Long> {
+        val longStrings = File(fileName).readLines()
+        return longStrings.map { it.toLong() }.toHashSet()
     }
 
     fun getRatioForUser(username: String): Double {

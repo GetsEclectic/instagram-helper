@@ -17,9 +17,10 @@ internal class Instagram4KTest {
 
     val testObject: Instagram4K = Instagram4K(apiClient)
 
-    fun createInstagramUserSummary(pk: Long = 1): InstagramUserSummary {
+    fun createInstagramUserSummary(pk: Long = 1, username: String = "Alice"): InstagramUserSummary {
         val instagramUserSummary = InstagramUserSummary()
         instagramUserSummary.pk = pk
+        instagramUserSummary.username = username
         return instagramUserSummary
     }
 
@@ -95,7 +96,7 @@ internal class Instagram4KTest {
             val pk = 1.toLong()
             testObject.addToBlacklist(pk)
 
-            verify { File(BLACKLIST_FILE_PATH).appendText("$pk,") }
+            verify { File(BLACKLIST_FILE_PATH).appendText("$pk\n") }
         }
 
         @Test
@@ -112,14 +113,14 @@ internal class Instagram4KTest {
             testObject.addToWhitelist(username)
 
             verify {
-                File(WHITELIST_FILE_PATH).appendText("$pk,")
+                File(WHITELIST_FILE_PATH).appendText("$pk\n")
                 apiClient.followByPK(pk)
             }
         }
 
         @Test
-        fun `getBlacklist should turn "1,2," into a HashSet containing 1 and 2`() {
-            every { File(BLACKLIST_FILE_PATH).readText() } returns ("1,2,")
+        fun `getBlacklist should turn a file containing the lines 1 and 2 into a HashSet containing 1 and 2`() {
+            every { File(BLACKLIST_FILE_PATH).readLines() } returns (listOf(1.toString(), 2.toString()))
 
             val blackList = testObject.getBlacklist()
 
@@ -130,8 +131,8 @@ internal class Instagram4KTest {
         }
 
         @Test
-        fun `getWhitelist should turn "3,4," into a HashSet containing 3 and 4`() {
-            every { File(WHITELIST_FILE_PATH).readText() } returns ("3,4,")
+        fun `getWhitelist should turn a file containing the lines 3 and 4 into a HashSet containing 3 and 4`() {
+            every { File(WHITELIST_FILE_PATH).readLines() } returns (listOf(3.toString(), 4.toString()))
 
             val whiteList = testObject.getWhitelist()
 
@@ -162,6 +163,50 @@ internal class Instagram4KTest {
             val ratio = testObject.getRatioForUser(username)
 
             assertThat(ratio).isEqualTo(2.toDouble())
+        }
+    }
+
+    @Nested
+    inner class PruneTest {
+        val username = "Bob"
+        val pk: Long = 7
+
+        init {
+            val mutualFollowerSummary = createInstagramUserSummary(pk = pk, username = username)
+            every { apiClient.getFollowing() } returns (setOf(mutualFollowerSummary))
+            every { apiClient.getFollowers(any()) } returns (
+                    sequence {
+                        yieldAll(listOf(mutualFollowerSummary))
+                    })
+
+            every { apiClient.unfollowByPK(any())} returns (StatusResult())
+
+            mockkStatic("kotlin.io.FilesKt__FileReadWriteKt")
+            every { File(WHITELIST_FILE_PATH).readText() } returns ("3,4,")
+        }
+
+        @Test
+        fun `pruneMutualFollowers should call unfollowByPK for a user in followers and following with more than 100 followers and a low ratio`() {
+            val mutualFollower = createInstagramUser(pk = pk, followerCount = 101, followingCount = 400)
+            every { apiClient.getInstagramUser(username)} returns (mutualFollower)
+
+            testObject.pruneMutualFollowers()
+
+            verify(exactly = 1) {
+                apiClient.unfollowByPK(pk)
+            }
+        }
+
+        @Test
+        fun `pruneMutualFollowers should not call unfollowByPK for a user in followers and following with more than 100 followers and a high ratio`() {
+            val mutualFollower = createInstagramUser(pk = pk, followerCount = 101, followingCount = 10)
+            every { apiClient.getInstagramUser(username)} returns (mutualFollower)
+
+            testObject.pruneMutualFollowers()
+
+            verify(exactly = 0) {
+                apiClient.unfollowByPK(pk)
+            }
         }
     }
 }
