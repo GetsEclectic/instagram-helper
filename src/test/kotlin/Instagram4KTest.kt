@@ -1,11 +1,9 @@
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.mockkStatic
-import io.mockk.verify
+import io.mockk.*
 import org.assertj.core.api.Assertions.assertThat
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import org.brunocvcunha.instagram4j.requests.payload.StatusResult
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -16,6 +14,11 @@ internal class Instagram4KTest {
     val apiClient: ApiClient = mockk()
 
     val testObject: Instagram4K = Instagram4K(apiClient)
+
+    @BeforeEach
+    fun init() {
+        clearAllMocks()
+    }
 
     fun createInstagramUserSummary(pk: Long = 1, username: String = "Alice"): InstagramUserSummary {
         val instagramUserSummary = InstagramUserSummary()
@@ -34,7 +37,8 @@ internal class Instagram4KTest {
 
     @Nested
     inner class UnfollowTest {
-        init {
+        @BeforeEach
+        fun init() {
             val instagramUserSummary1 = createInstagramUserSummary(pk = 1)
             val instagramUserSummary2 = createInstagramUserSummary(pk = 2)
 
@@ -53,7 +57,7 @@ internal class Instagram4KTest {
 
             mockkStatic("kotlin.io.FilesKt__FileReadWriteKt")
 
-            every { File(WHITELIST_FILE_PATH).readText() } returns ("7,")
+            every { File(WHITELIST_FILE_PATH).readLines() } returns (listOf("7"))
         }
 
         @Test
@@ -74,7 +78,7 @@ internal class Instagram4KTest {
 
         @Test
         fun `unfollowUnfollowers should not unfollow users in the whitelist`() {
-            every { File(WHITELIST_FILE_PATH).readText() } returns ("2,")
+            every { File(WHITELIST_FILE_PATH).readLines() } returns (listOf("2"))
 
             testObject.unfollowUnfollowers()
 
@@ -84,7 +88,8 @@ internal class Instagram4KTest {
 
     @Nested
     inner class ListTest {
-        init {
+        @BeforeEach
+        fun init() {
             mockkStatic("kotlin.io.FilesKt__FileReadWriteKt")
 
             every { File(BLACKLIST_FILE_PATH).appendText(any()) } returns (Unit)
@@ -120,7 +125,7 @@ internal class Instagram4KTest {
 
         @Test
         fun `getBlacklist should turn a file containing the lines 1 and 2 into a HashSet containing 1 and 2`() {
-            every { File(BLACKLIST_FILE_PATH).readLines() } returns (listOf(1.toString(), 2.toString()))
+            every { File(BLACKLIST_FILE_PATH).readLines() } returns (listOf("1", "2"))
 
             val blackList = testObject.getBlacklist()
 
@@ -132,7 +137,7 @@ internal class Instagram4KTest {
 
         @Test
         fun `getWhitelist should turn a file containing the lines 3 and 4 into a HashSet containing 3 and 4`() {
-            every { File(WHITELIST_FILE_PATH).readLines() } returns (listOf(3.toString(), 4.toString()))
+            every { File(WHITELIST_FILE_PATH).readLines() } returns (listOf("3", "4"))
 
             val whiteList = testObject.getWhitelist()
 
@@ -171,7 +176,8 @@ internal class Instagram4KTest {
         val username = "Bob"
         val pk: Long = 7
 
-        init {
+        @BeforeEach
+        fun init() {
             val mutualFollowerSummary = createInstagramUserSummary(pk = pk, username = username)
             every { apiClient.getFollowing() } returns (setOf(mutualFollowerSummary))
             every { apiClient.getFollowers(any()) } returns (
@@ -182,7 +188,7 @@ internal class Instagram4KTest {
             every { apiClient.unfollowByPK(any())} returns (StatusResult())
 
             mockkStatic("kotlin.io.FilesKt__FileReadWriteKt")
-            every { File(WHITELIST_FILE_PATH).readText() } returns ("3,4,")
+            every { File(WHITELIST_FILE_PATH).readLines() } returns (listOf("3", "4"))
         }
 
         @Test
@@ -192,7 +198,7 @@ internal class Instagram4KTest {
 
             testObject.pruneMutualFollowers()
 
-            verify(exactly = 1) {
+            verify {
                 apiClient.unfollowByPK(pk)
             }
         }
