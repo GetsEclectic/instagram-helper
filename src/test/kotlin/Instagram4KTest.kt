@@ -263,4 +263,96 @@ internal class Instagram4KTest {
             }
         }
     }
+
+    @Nested
+    inner class CopyTest {
+        val targetName = "Carl"
+        val targetUser = createInstagramUser()
+
+        val followerName = "Bob"
+        val followerPK = 6.toLong()
+        val followerUserSummary = createInstagramUserSummary(pk = followerPK, username = followerName)
+        val followerUser = createInstagramUser(pk = followerPK, followerCount = 100, followingCount = 400)
+
+        @BeforeEach
+        fun init() {
+            every { apiClient.getInstagramUser(targetName)} returns (targetUser)
+            every { apiClient.getInstagramUser(followerName)} returns (followerUser)
+            every { apiClient.getFollowers(targetUser)} returns (
+                    sequence {
+                        yieldAll(listOf(followerUserSummary))
+                    })
+            every { apiClient.getFollowing() } returns (setOf())
+            every { apiClient.followByPK(followerPK)} returns (StatusResult())
+
+            mockkStatic("kotlin.io.FilesKt__FileReadWriteKt")
+
+            every { File(BLACKLIST_FILE_PATH).appendText(any()) } returns (Unit)
+            every { File(BLACKLIST_FILE_PATH).readLines() } returns (listOf())
+        }
+
+        @Test
+        fun `copyFollowers should call followByPK and addToBlacklist for a user that we aren't already following, is following the target, isn't in the blacklist, and has a poor ratio`() {
+            testObject.copyFollowers(targetName)
+
+            verify {
+                apiClient.followByPK(followerPK)
+                File(BLACKLIST_FILE_PATH).appendText("$followerPK\n")
+            }
+        }
+
+        @Test
+        fun `copyFollowers should not call followByPK or addToBlacklist for a user that we are already following`() {
+            every { apiClient.getFollowing() } returns (setOf(followerUserSummary))
+
+            testObject.copyFollowers(targetName)
+
+            verify(exactly = 0) {
+                apiClient.followByPK(followerPK)
+                File(BLACKLIST_FILE_PATH).appendText(any())
+            }
+        }
+
+        @Test
+        fun `copyFollowers should not call followByPK or addToBlacklist for a user that isn't following the target`() {
+            every { apiClient.getFollowers(targetUser)} returns (
+                    sequence {
+                        yieldAll(listOf())
+                    })
+
+            testObject.copyFollowers(targetName)
+
+            verify(exactly = 0) {
+                apiClient.followByPK(followerPK)
+                File(BLACKLIST_FILE_PATH).appendText(any())
+            }
+        }
+
+        @Test
+        fun `copyFollowers should not call followByPK or addToBlacklist for a user that is in the blacklist`() {
+            every { File(BLACKLIST_FILE_PATH).readLines() } returns (listOf(followerPK.toString()))
+
+            testObject.copyFollowers(targetName)
+
+            verify(exactly = 0) {
+                apiClient.followByPK(followerPK)
+                File(BLACKLIST_FILE_PATH).appendText(any())
+            }
+        }
+
+        @Test
+        fun `copyFollowers should not call followByPK but should call addToBlacklist for a user that has a good ratio`() {
+            every { apiClient.getInstagramUser(followerName)} returns (createInstagramUser(pk = followerPK, followerCount = 100, followingCount = 10))
+
+            testObject.copyFollowers(targetName)
+
+            verify(exactly = 0) {
+                apiClient.followByPK(followerPK)
+            }
+
+            verify {
+                File(BLACKLIST_FILE_PATH).appendText("$followerPK\n")
+            }
+        }
+    }
 }
