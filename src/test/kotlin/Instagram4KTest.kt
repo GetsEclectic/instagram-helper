@@ -189,13 +189,13 @@ internal class Instagram4KTest {
 
             mockkStatic("kotlin.io.FilesKt__FileReadWriteKt")
             every { File(WHITELIST_FILE_PATH).readLines() } returns (listOf("3", "4"))
+
+            val mutualFollower = createInstagramUser(pk = pk, followerCount = 101, followingCount = 400)
+            every { apiClient.getInstagramUser(username)} returns (mutualFollower)
         }
 
         @Test
-        fun `pruneMutualFollowers should call unfollowByPK for a user in followers and following with more than 100 followers and a low ratio`() {
-            val mutualFollower = createInstagramUser(pk = pk, followerCount = 101, followingCount = 400)
-            every { apiClient.getInstagramUser(username)} returns (mutualFollower)
-
+        fun `pruneMutualFollowers should call unfollowByPK for a user in followers and following with more than 100 followers and a low ratio, and not in the whitelist`() {
             testObject.pruneMutualFollowers()
 
             verify {
@@ -204,9 +204,57 @@ internal class Instagram4KTest {
         }
 
         @Test
-        fun `pruneMutualFollowers should not call unfollowByPK for a user in followers and following with more than 100 followers and a high ratio`() {
+        fun `pruneMutualFollowers should not call unfollowByPK for a user with a high ratio`() {
             val mutualFollower = createInstagramUser(pk = pk, followerCount = 101, followingCount = 10)
             every { apiClient.getInstagramUser(username)} returns (mutualFollower)
+
+            testObject.pruneMutualFollowers()
+
+            verify(exactly = 0) {
+                apiClient.unfollowByPK(pk)
+            }
+        }
+
+        @Test
+        fun `pruneMutualFollowers should not call unfollowByPK for a user with less than 100 followers`() {
+            val mutualFollower = createInstagramUser(pk = pk, followerCount = 99, followingCount = 400)
+            every { apiClient.getInstagramUser(username)} returns (mutualFollower)
+
+            testObject.pruneMutualFollowers()
+
+            verify(exactly = 0) {
+                apiClient.unfollowByPK(pk)
+            }
+        }
+
+        @Test
+        fun `pruneMutualFollowers should not call unfollowByPK for a user in the whitelist`() {
+            every { File(WHITELIST_FILE_PATH).readLines() } returns (listOf("$pk"))
+
+            testObject.pruneMutualFollowers()
+
+            verify(exactly = 0) {
+                apiClient.unfollowByPK(pk)
+            }
+        }
+
+        @Test
+        fun `pruneMutualFollowers should not call unfollowByPK for a user in followers but not following`() {
+            every { apiClient.getFollowing() } returns (setOf())
+
+            testObject.pruneMutualFollowers()
+
+            verify(exactly = 0) {
+                apiClient.unfollowByPK(pk)
+            }
+        }
+
+        @Test
+        fun `pruneMutualFollowers should not call unfollowByPK for a user not in followers but in following`() {
+            every { apiClient.getFollowers(any()) } returns (
+                    sequence {
+                        yieldAll(listOf())
+                    })
 
             testObject.pruneMutualFollowers()
 
