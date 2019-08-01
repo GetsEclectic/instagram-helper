@@ -42,6 +42,21 @@ instagram4K.copyFollowers("name_of_a_similar_account")
 instagram4K.addToWhitelist("name_of_account_you_like")
 ```
 
+## Set up postgres db with docker
+```bash
+docker run --name some-postgres -e POSTGRES_PASSWORD=<agoodpassword> -d -p 5432:5432 postgres
+
+docker exec -it <containerid> bash
+
+psql -U postgres
+
+create database instagram4k;
+
+create user instagram4k_app with password '<anothergoodpassword>';
+
+grant connect on database instagram4k to instagram4k_app;
+```
+
 ## Terms and conditions
 
 - You will NOT use this API for marketing purposes (spam, botting, harassment, massive bulk messaging...).
