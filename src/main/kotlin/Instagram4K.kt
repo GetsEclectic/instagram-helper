@@ -1,11 +1,38 @@
+import org.jooq.DSLContext
+import org.jooq.SQLDialect
+import org.jooq.impl.DSL
 import java.io.File
-
+import org.jooq.impl.DSL.*
+import org.jooq.instagram4k.Tables.*
+import java.sql.Connection
+import java.sql.DriverManager
+import java.util.*
+import kotlin.collections.HashSet
 
 const val BLACKLIST_FILE_PATH = "data/follow_blacklist"
 const val WHITELIST_FILE_PATH = "data/unfollow_whitelist"
 
 class Instagram4K(private val apiClient: ApiClient) {
     constructor(instaName: String, instaPW: String) : this(ApiClient(instaName, instaPW))
+
+    val connection = getDatabaseConnection()
+
+    fun getDatabaseConnection() : Connection {
+        val dbConfig = Properties()
+        File("dbconfig.properties").inputStream().let { dbConfig.load(it) }
+        val dbUser: String = dbConfig.getProperty("db.user")
+        val dbPassword: String = dbConfig.getProperty("db.password")
+        val dbUrl: String = dbConfig.getProperty("db.url")
+        return DriverManager.getConnection(dbUrl, dbUser, dbPassword)
+    }
+
+    fun doJooqStuff() {
+        val create = using(connection, SQLDialect.POSTGRES)
+        val result = create.select().from(BLACKLIST_REASON).fetch()
+        result.map {
+            println(it.getValue(BLACKLIST_REASON.REASON))
+        }
+    }
 
     fun getUnfollowerPKs(): List<Long> {
         val followerPKs = apiClient.getFollowers().map { it.pk }.toHashSet()
