@@ -1,4 +1,4 @@
-
+import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 
 class Instagram4K(private val apiClient: ApiClient, private val database: Database = Database()) {
     constructor(instaName: String, instaPW: String) : this(ApiClient(instaName, instaPW))
@@ -20,7 +20,7 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
     fun unfollowUnfollowers() {
         val unfollowerPKs = getUnfollowerPKs()
 
-        unfollowerPKs.filter { !database.getWhitelist(apiClient.getOurPK()).contains(it) }
+        unfollowerPKs.filter { !database.getWhitelist(apiClient.getOurPK(), Database.WHITELIST_REASONS.MANUAL).contains(it) }
             .map {
             println("unfollowing: $it")
             apiClient.unfollowByPK(it)
@@ -35,7 +35,7 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
         database.addToWhitelist(apiClient.getOurPK(), pk_to_whitelist, Database.WHITELIST_REASONS.MANUAL)
     }
 
-    // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
+    // finds mutual followers and calls unfollowUserUnlikelyToUnfollowBack on the ones that aren't whitelisted
     fun pruneMutualFollowers() {
         val followingMap = apiClient.getFollowing().associateBy({it.pk}, {it})
         val followersMap = apiClient.getFollowers().associateBy({it.pk}, {it})
@@ -47,16 +47,24 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
 
         mutualFollowersMap.filter { !database.getWhitelist(apiClient.getOurPK()).contains(it.value.pk) }
             .map {
-                val followinger = apiClient.getInstagramUser(it.value.username)
-                val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
-
-                if(followinger.follower_count > 100 && followerRatio < 0.3) {
-                    println("unfollowing ${followinger.username}")
-                    apiClient.unfollowByPK(followinger.pk)
-                }
-
+                database.addToWhitelist(apiClient.getOurPK(), it.value.pk, Database.WHITELIST_REASONS.SCANNED_WHEN_PRUNING)
+                it
+            }
+            .map {
+                unfollowUserUnlikelyToUnfollowBack(it.value)
                 Thread.sleep(1000)
             }
+    }
+
+    // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
+    fun unfollowUserUnlikelyToUnfollowBack(user: InstagramUserSummary) {
+        val followinger = apiClient.getInstagramUser(user.username)
+        val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
+
+        if(followinger.follower_count > 100 && followerRatio < 0.3) {
+            println("unfollowing ${followinger.username}")
+            apiClient.unfollowByPK(followinger.pk)
+        }
     }
 
     fun getRatioForUser(username: String): Double {

@@ -32,13 +32,22 @@ class Database {
             .values(our_pk, pk_to_blacklist, BLACKLIST_REASONS.SCANNED_WHEN_COPYING.reasonString)
     }
 
-    fun getWhitelist(ourPK: Long): HashSet<Long> {
+    private fun getWhitelist(ourPK: Long, whitelistReasons: List<WHITELIST_REASONS>): HashSet<Long> {
         return create.select()
             .from(UNFOLLOW_WHITELIST)
             .where(UNFOLLOW_WHITELIST.OUR_PK.eq(ourPK))
+            .and(UNFOLLOW_WHITELIST.WHITELIST_REASON.`in`(whitelistReasons))
             .fetch()
             .map { it.getValue(UNFOLLOW_WHITELIST.WHITELISTED_PK) }
             .toHashSet()
+    }
+
+    fun getWhitelist(ourPK: Long, whitelistReasons: WHITELIST_REASONS): HashSet<Long> {
+        return getWhitelist(ourPK, listOf(whitelistReasons))
+    }
+
+    fun getWhitelist(ourPK: Long): HashSet<Long> {
+        return getWhitelist(ourPK, listOf(WHITELIST_REASONS.MANUAL, WHITELIST_REASONS.SCANNED_WHEN_PRUNING))
     }
 
     fun addToWhitelist(our_pk: Long, pk_to_whitelist: Long, whitelistReasons: WHITELIST_REASONS) {

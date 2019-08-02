@@ -60,7 +60,7 @@ internal class Instagram4KTest {
                     StatusResult()
                     )
 
-            every { database.getWhitelist(ourPK) } returns (hashSetOf(7))
+            every { database.getWhitelist(ourPK, Database.WHITELIST_REASONS.MANUAL) } returns (hashSetOf(7))
         }
 
         @Test
@@ -80,12 +80,16 @@ internal class Instagram4KTest {
         }
 
         @Test
-        fun `unfollowUnfollowers should not unfollow users in the whitelist`() {
-            every { database.getWhitelist(ourPK) } returns (hashSetOf(2))
+        fun `unfollowUnfollowers should not unfollow users in the whitelist, also it should only care about the manual whitelist so it should not try to get the other whitelist reasons`() {
+            every { database.getWhitelist(ourPK, Database.WHITELIST_REASONS.MANUAL) } returns (hashSetOf(2))
 
             testObject.unfollowUnfollowers()
 
-            verify(exactly = 0) { apiClient.unfollowByPK(any()) }
+            verify(exactly = 0) {
+                apiClient.unfollowByPK(any())
+                database.getWhitelist(any())
+                database.getWhitelist(any(), Database.WHITELIST_REASONS.SCANNED_WHEN_PRUNING)
+            }
         }
     }
 
@@ -158,68 +162,80 @@ internal class Instagram4KTest {
             every { apiClient.unfollowByPK(any())} returns (StatusResult())
 
             every { database.getWhitelist(ourPK) } returns (hashSetOf(3, 4))
+            every { database.addToWhitelist(any(), any(), any()) } returns (Unit)
 
             val mutualFollower = createInstagramUser(pk = pk, followerCount = 101, followingCount = 400)
             every { apiClient.getInstagramUser(username)} returns (mutualFollower)
         }
 
         @Test
-        fun `pruneMutualFollowers should call unfollowByPK for a user in followers and following with more than 100 followers and a low ratio, and not in the whitelist`() {
+        fun `pruneMutualFollowers should call unfollowByPK and addToWhitelist for a user in followers and following with more than 100 followers and a low ratio, and not in the whitelist`() {
             testObject.pruneMutualFollowers()
 
             verify {
                 apiClient.unfollowByPK(pk)
+                database.addToWhitelist(ourPK, pk, Database.WHITELIST_REASONS.SCANNED_WHEN_PRUNING)
             }
         }
 
         @Test
-        fun `pruneMutualFollowers should not call unfollowByPK for a user with a high ratio`() {
+        fun `pruneMutualFollowers should not call unfollowByPK for a user with a high ratio, but should call addToWhitelist`() {
             val mutualFollower = createInstagramUser(pk = pk, followerCount = 101, followingCount = 10)
             every { apiClient.getInstagramUser(username)} returns (mutualFollower)
 
             testObject.pruneMutualFollowers()
 
             verify(exactly = 0) {
-                apiClient.unfollowByPK(pk)
+                apiClient.unfollowByPK(any())
+            }
+
+            verify {
+                database.addToWhitelist(ourPK, pk, Database.WHITELIST_REASONS.SCANNED_WHEN_PRUNING)
             }
         }
 
         @Test
-        fun `pruneMutualFollowers should not call unfollowByPK for a user with less than 100 followers`() {
+        fun `pruneMutualFollowers should not call unfollowByPK for a user with less than 100 followers, but should call addToWhitelist`() {
             val mutualFollower = createInstagramUser(pk = pk, followerCount = 99, followingCount = 400)
             every { apiClient.getInstagramUser(username)} returns (mutualFollower)
 
             testObject.pruneMutualFollowers()
 
             verify(exactly = 0) {
-                apiClient.unfollowByPK(pk)
+                apiClient.unfollowByPK(any())
+            }
+
+            verify {
+                database.addToWhitelist(ourPK, pk, Database.WHITELIST_REASONS.SCANNED_WHEN_PRUNING)
             }
         }
 
         @Test
-        fun `pruneMutualFollowers should not call unfollowByPK for a user in the whitelist`() {
+        fun `pruneMutualFollowers should not call unfollowByPK or addToWhitelist for a user in the whitelist`() {
             every { database.getWhitelist(ourPK) } returns (hashSetOf(pk))
 
             testObject.pruneMutualFollowers()
 
             verify(exactly = 0) {
-                apiClient.unfollowByPK(pk)
+                apiClient.unfollowByPK(any())
+                database.addToWhitelist(any(), any(), any())
             }
         }
 
         @Test
-        fun `pruneMutualFollowers should not call unfollowByPK for a user in followers but not following`() {
+        fun `pruneMutualFollowers should not call unfollowByPK or addToWhitelist for a user in followers but not following`() {
             every { apiClient.getFollowing() } returns (setOf())
 
             testObject.pruneMutualFollowers()
 
             verify(exactly = 0) {
-                apiClient.unfollowByPK(pk)
+                apiClient.unfollowByPK(any())
+                database.addToWhitelist(any(), any(), any())
             }
         }
 
         @Test
-        fun `pruneMutualFollowers should not call unfollowByPK for a user not in followers but in following`() {
+        fun `pruneMutualFollowers should not call unfollowByPK or addToWhitelist for a user not in followers but in following`() {
             every { apiClient.getFollowers(any()) } returns (
                     sequence {
                         yieldAll(listOf())
@@ -228,7 +244,8 @@ internal class Instagram4KTest {
             testObject.pruneMutualFollowers()
 
             verify(exactly = 0) {
-                apiClient.unfollowByPK(pk)
+                apiClient.unfollowByPK(any())
+                database.addToWhitelist(any(), any(), any())
             }
         }
     }
