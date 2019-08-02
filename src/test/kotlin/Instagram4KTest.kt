@@ -13,7 +13,9 @@ import java.io.File
 internal class Instagram4KTest {
     val apiClient: ApiClient = mockk()
 
-    val testObject: Instagram4K = Instagram4K(apiClient)
+    val database: Database = mockk()
+
+    val testObject: Instagram4K = Instagram4K(apiClient, database)
 
     @BeforeEach
     fun init() {
@@ -92,16 +94,7 @@ internal class Instagram4KTest {
         fun init() {
             mockkStatic("kotlin.io.FilesKt__FileReadWriteKt")
 
-            every { File(BLACKLIST_FILE_PATH).appendText(any()) } returns (Unit)
             every { File(WHITELIST_FILE_PATH).appendText(any()) } returns (Unit)
-        }
-
-        @Test
-        fun `addToBlacklist should append the pk followed by a comma to the blacklist file`() {
-            val pk = 1.toLong()
-            testObject.addToBlacklist(pk)
-
-            verify { File(BLACKLIST_FILE_PATH).appendText("$pk\n") }
         }
 
         @Test
@@ -121,18 +114,6 @@ internal class Instagram4KTest {
                 File(WHITELIST_FILE_PATH).appendText("$pk\n")
                 apiClient.followByPK(pk)
             }
-        }
-
-        @Test
-        fun `getBlacklist should turn a file containing the lines 1 and 2 into a HashSet containing 1 and 2`() {
-            every { File(BLACKLIST_FILE_PATH).readLines() } returns (listOf("1", "2"))
-
-            val blackList = testObject.getBlacklist()
-
-            assertThat(blackList).containsExactlyInAnyOrder(
-                1.toLong(),
-                2.toLong()
-            )
         }
 
         @Test
@@ -287,8 +268,8 @@ internal class Instagram4KTest {
 
             mockkStatic("kotlin.io.FilesKt__FileReadWriteKt")
 
-            every { File(BLACKLIST_FILE_PATH).appendText(any()) } returns (Unit)
-            every { File(BLACKLIST_FILE_PATH).readLines() } returns (listOf())
+            every { database.addToBlacklist(any()) } returns (Unit)
+            every { database.getBlacklist() } returns (hashSetOf())
         }
 
         @Test
@@ -297,7 +278,7 @@ internal class Instagram4KTest {
 
             verify {
                 apiClient.followByPK(followerPK)
-                File(BLACKLIST_FILE_PATH).appendText("$followerPK\n")
+                database.addToBlacklist(followerPK)
             }
         }
 
@@ -309,7 +290,7 @@ internal class Instagram4KTest {
 
             verify(exactly = 0) {
                 apiClient.followByPK(followerPK)
-                File(BLACKLIST_FILE_PATH).appendText(any())
+                database.addToBlacklist(any())
             }
         }
 
@@ -324,19 +305,19 @@ internal class Instagram4KTest {
 
             verify(exactly = 0) {
                 apiClient.followByPK(followerPK)
-                File(BLACKLIST_FILE_PATH).appendText(any())
+                database.addToBlacklist(any())
             }
         }
 
         @Test
         fun `copyFollowers should not call followByPK or addToBlacklist for a user that is in the blacklist`() {
-            every { File(BLACKLIST_FILE_PATH).readLines() } returns (listOf(followerPK.toString()))
+            every { database.getBlacklist() } returns (hashSetOf(followerPK))
 
             testObject.copyFollowers(targetName)
 
             verify(exactly = 0) {
                 apiClient.followByPK(followerPK)
-                File(BLACKLIST_FILE_PATH).appendText(any())
+                database.addToBlacklist(any())
             }
         }
 
@@ -351,7 +332,7 @@ internal class Instagram4KTest {
             }
 
             verify {
-                File(BLACKLIST_FILE_PATH).appendText("$followerPK\n")
+                database.addToBlacklist(followerPK)
             }
         }
     }

@@ -1,38 +1,10 @@
-import org.jooq.DSLContext
-import org.jooq.SQLDialect
-import org.jooq.impl.DSL
 import java.io.File
-import org.jooq.impl.DSL.*
-import org.jooq.instagram4k.Tables.*
-import java.sql.Connection
-import java.sql.DriverManager
-import java.util.*
-import kotlin.collections.HashSet
 
 const val BLACKLIST_FILE_PATH = "data/follow_blacklist"
 const val WHITELIST_FILE_PATH = "data/unfollow_whitelist"
 
-class Instagram4K(private val apiClient: ApiClient) {
+class Instagram4K(private val apiClient: ApiClient, private val database: Database = Database()) {
     constructor(instaName: String, instaPW: String) : this(ApiClient(instaName, instaPW))
-
-    val connection = getDatabaseConnection()
-
-    fun getDatabaseConnection() : Connection {
-        val dbConfig = Properties()
-        File("dbconfig.properties").inputStream().let { dbConfig.load(it) }
-        val dbUser: String = dbConfig.getProperty("db.user")
-        val dbPassword: String = dbConfig.getProperty("db.password")
-        val dbUrl: String = dbConfig.getProperty("db.url")
-        return DriverManager.getConnection(dbUrl, dbUser, dbPassword)
-    }
-
-    fun doJooqStuff() {
-        val create = using(connection, SQLDialect.POSTGRES)
-        val result = create.select().from(BLACKLIST_REASON).fetch()
-        result.map {
-            println(it.getValue(BLACKLIST_REASON.REASON))
-        }
-    }
 
     fun getUnfollowerPKs(): List<Long> {
         val followerPKs = apiClient.getFollowers().map { it.pk }.toHashSet()
@@ -56,10 +28,6 @@ class Instagram4K(private val apiClient: ApiClient) {
             println("unfollowing: $it")
             apiClient.unfollowByPK(it)
         }
-    }
-
-    fun addToBlacklist(pk: Long) {
-        File(BLACKLIST_FILE_PATH).appendText("$pk\n")
     }
 
     // follows a user and adds them to the whitelist, so they are never automatically unfollowed
@@ -94,10 +62,6 @@ class Instagram4K(private val apiClient: ApiClient) {
             }
     }
 
-    fun getBlacklist(): HashSet<Long> {
-        return newlineDelimitedFilenameToHashSet(BLACKLIST_FILE_PATH)
-    }
-
     fun getWhitelist(): HashSet<Long> {
         return newlineDelimitedFilenameToHashSet(WHITELIST_FILE_PATH)
     }
@@ -120,14 +84,14 @@ class Instagram4K(private val apiClient: ApiClient) {
         val userToCopyFrom = apiClient.getInstagramUser(username)
         val otherUsersFollowers = apiClient.getFollowers(userToCopyFrom)
 
-        val blacklist = getBlacklist()
+        val blacklist = database.getBlacklist()
         val myFollowingPKs = apiClient.getFollowing().toList().map { it.pk }
 
         otherUsersFollowers.filter { !blacklist.contains(it.pk) }
             .filter { !myFollowingPKs.contains(it.pk) }
             .map {
                 // blacklist everyone we scan, saves us from having to calculate a ratio every time we see them
-                addToBlacklist(it.pk)
+                database.addToBlacklist(it.pk)
                 it
             }
             .filter { getRatioForUser(it.username) < 0.5 }
