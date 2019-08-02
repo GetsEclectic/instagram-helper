@@ -39,7 +39,7 @@ instagram4K.copyFollowers("name_of_a_similar_account")
 #### follow a user and add them to the whitelist so they are never automatically unfollowed
 
 ```kotlin
-instagram4K.addToWhitelist("name_of_account_you_like")
+instagram4K.followAndAddToWhitelist("name_of_account_you_like")
 ```
 
 ## Set up postgres db with docker
