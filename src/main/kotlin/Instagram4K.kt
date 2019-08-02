@@ -1,7 +1,4 @@
-import java.io.File
 
-const val BLACKLIST_FILE_PATH = "data/follow_blacklist"
-const val WHITELIST_FILE_PATH = "data/unfollow_whitelist"
 
 class Instagram4K(private val apiClient: ApiClient, private val database: Database = Database()) {
     constructor(instaName: String, instaPW: String) : this(ApiClient(instaName, instaPW))
@@ -60,11 +57,6 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
 
                 Thread.sleep(1000)
             }
-    }
-
-    fun newlineDelimitedFilenameToHashSet(fileName: String): HashSet<Long> {
-        val longStrings = File(fileName).readLines()
-        return longStrings.map { it.toLong() }.toHashSet()
     }
 
     fun getRatioForUser(username: String): Double {
