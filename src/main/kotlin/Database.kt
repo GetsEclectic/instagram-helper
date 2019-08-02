@@ -33,11 +33,10 @@ class Database {
     }
 
     private fun getWhitelist(ourPK: Long, whitelistReasons: List<WHITELIST_REASONS>): HashSet<Long> {
-        val whitelistReasonStrings = whitelistReasons.map { it.reasonString }
         return create.select()
             .from(UNFOLLOW_WHITELIST)
             .where(UNFOLLOW_WHITELIST.OUR_PK.eq(ourPK))
-            .and(UNFOLLOW_WHITELIST.WHITELIST_REASON.`in`(whitelistReasonStrings))
+            .and(UNFOLLOW_WHITELIST.WHITELIST_REASON.`in`(whitelistReasons))
             .fetch()
             .map { it.getValue(UNFOLLOW_WHITELIST.WHITELISTED_PK) }
             .toHashSet()
@@ -57,11 +56,19 @@ class Database {
     }
 
     enum class BLACKLIST_REASONS(val reasonString: String) {
-        SCANNED_WHEN_COPYING("scanned when copying followers")
+        SCANNED_WHEN_COPYING("scanned when copying followers");
+
+        override fun toString(): String {
+            return reasonString
+        }
     }
 
     enum class WHITELIST_REASONS(val reasonString: String) {
         MANUAL("manually whitelisted"),
-        SCANNED_WHEN_PRUNING("scanned when pruning mutual followers")
+        SCANNED_WHEN_PRUNING("scanned when pruning mutual followers");
+
+        override fun toString(): String {
+            return reasonString
+        }
     }
 }
