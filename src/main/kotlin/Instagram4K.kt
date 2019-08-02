@@ -1,7 +1,10 @@
+import org.apache.logging.log4j.LogManager
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 
 class Instagram4K(private val apiClient: ApiClient, private val database: Database = Database()) {
     constructor(instaName: String, instaPW: String) : this(ApiClient(instaName, instaPW))
+
+    val logger = LogManager.getLogger(javaClass)
 
     fun getUnfollowerPKs(): List<Long> {
         val followerPKs = apiClient.getFollowers().map { it.pk }.toHashSet()
@@ -20,7 +23,9 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
     fun unfollowUnfollowers() {
         val unfollowerPKs = getUnfollowerPKs()
 
-        unfollowerPKs.filter { !database.getWhitelist(apiClient.getOurPK(), Database.WHITELIST_REASONS.MANUAL).contains(it) }
+        val whitelist = database.getWhitelist(apiClient.getOurPK(), Database.WHITELIST_REASONS.MANUAL)
+
+        unfollowerPKs.filter { !whitelist.contains(it) }
             .map {
             println("unfollowing: $it")
             apiClient.unfollowByPK(it)
@@ -45,14 +50,12 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
 
         println("mutual followers: ${mutualFollowersMap.size}")
 
-        mutualFollowersMap.filter { !database.getWhitelist(apiClient.getOurPK()).contains(it.value.pk) }
+        val whitelist = database.getWhitelist(apiClient.getOurPK())
+
+        mutualFollowersMap.filter { !whitelist.contains(it.value.pk) }
             .map {
                 database.addToWhitelist(apiClient.getOurPK(), it.value.pk, Database.WHITELIST_REASONS.SCANNED_WHEN_PRUNING)
-                it
-            }
-            .map {
                 unfollowUserUnlikelyToUnfollowBack(it.value)
-                Thread.sleep(1000)
             }
     }
 

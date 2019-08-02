@@ -29,7 +29,7 @@ class Database {
 
     fun addToBlacklist(our_pk: Long, pk_to_blacklist: Long) {
         create.insertInto(FOLLOW_BLACKLIST, FOLLOW_BLACKLIST.OUR_PK, FOLLOW_BLACKLIST.BLACKLISTED_PK, FOLLOW_BLACKLIST.BLACKLIST_REASON)
-            .values(our_pk, pk_to_blacklist, BLACKLIST_REASONS.SCANNED_WHEN_COPYING.reasonString)
+            .values(our_pk, pk_to_blacklist, BLACKLIST_REASONS.SCANNED_WHEN_COPYING.reasonString).execute()
     }
 
     private fun getWhitelist(ourPK: Long, whitelistReasons: List<WHITELIST_REASONS>): HashSet<Long> {
@@ -52,7 +52,7 @@ class Database {
 
     fun addToWhitelist(our_pk: Long, pk_to_whitelist: Long, whitelistReasons: WHITELIST_REASONS) {
         create.insertInto(UNFOLLOW_WHITELIST, UNFOLLOW_WHITELIST.OUR_PK, UNFOLLOW_WHITELIST.WHITELISTED_PK, UNFOLLOW_WHITELIST.WHITELIST_REASON)
-            .values(our_pk, pk_to_whitelist, whitelistReasons.reasonString)
+            .values(our_pk, pk_to_whitelist, whitelistReasons.reasonString).execute()
     }
 
     enum class BLACKLIST_REASONS(val reasonString: String) {

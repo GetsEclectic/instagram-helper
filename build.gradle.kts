@@ -19,6 +19,8 @@ dependencies {
     compile(kotlin("stdlib-jdk8"))
     compile("org.brunocvcunha.instagram4j:instagram4j:1.11")
     compile("javax.annotation:javax.annotation-api:1.3.2")
+    compile("org.apache.logging.log4j:log4j-core:2.12.0")
+    compile("org.apache.logging.log4j:log4j-api:2.12.0")
 
     compile("org.postgresql:postgresql:9.3-1100-jdbc4")
     jooqRuntime("org.postgresql:postgresql:9.3-1100-jdbc4")
