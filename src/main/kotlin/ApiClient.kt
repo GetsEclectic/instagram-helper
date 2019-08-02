@@ -1,5 +1,6 @@
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.impl.client.HttpClientBuilder
+import org.apache.logging.log4j.LogManager
 import org.brunocvcunha.instagram4j.Instagram4j
 import org.brunocvcunha.instagram4j.requests.*
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
@@ -14,6 +15,8 @@ import javax.net.ssl.SSLProtocolException
 class ApiClient(instaName: String, instaPW: String) {
     private val instagram4j = Instagram4JWithTimeout(instaName, instaPW)
     private val instagramUser =  getInstagramUser(instaName)
+
+    val logger = LogManager.getLogger(javaClass)
 
     enum class RequestStatus {
         SUCCESS, FAIL_RATE_LIMIT, FAIL_NETWORK_EXCEPTION
@@ -52,11 +55,11 @@ class ApiClient(instaName: String, instaPW: String) {
 
             if(instagram4JResult.requestStatus == RequestStatus.FAIL_RATE_LIMIT) {
                 val sleepTimeInMinutes = 10.toLong()
-                println("got rate limited, sleeping for $sleepTimeInMinutes minutes and retrying")
+                logger.info("got rate limited, sleeping for $sleepTimeInMinutes minutes and retrying")
                 Thread.sleep(sleepTimeInMinutes * 60 * 1000)
             } else if (instagram4JResult.requestStatus == RequestStatus.FAIL_NETWORK_EXCEPTION) {
                 val sleepTimeInSeconds = 5.toLong()
-                println("network issue, sleeping for $sleepTimeInSeconds seconds and retrying")
+                logger.info("network issue, sleeping for $sleepTimeInSeconds seconds and retrying")
                 Thread.sleep(sleepTimeInSeconds * 1000)
             }
         } while(instagram4JResult.requestStatus != RequestStatus.SUCCESS)
@@ -70,7 +73,7 @@ class ApiClient(instaName: String, instaPW: String) {
     }
 
     fun getFollowers(instagramUser: InstagramUser = this.instagramUser): Sequence<InstagramUserSummary> {
-        println("getting followers for: ${instagramUser.username}")
+        logger.info("getting followers for: ${instagramUser.username}")
 
         return sequence {
             var nextMaxId: String? = null
@@ -84,7 +87,7 @@ class ApiClient(instaName: String, instaPW: String) {
     }
 
     fun getFollowing(): Set<InstagramUserSummary> {
-        println("getting following for: ${instagramUser.username}")
+        logger.info("getting following for: ${instagramUser.username}")
         return HashSet(sendRequestWithRetry(InstagramGetUserFollowingRequest(instagramUser.pk)).getUsers())
     }
 

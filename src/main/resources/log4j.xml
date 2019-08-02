@@ -9,6 +9,12 @@
         </layout>
     </appender>
 
+<!--    enable jooq logs   -->
+<!--    <logger name="org.jooq" additivity="false">-->
+<!--        <level value="DEBUG" />-->
+<!--        <appender-ref ref="console" />-->
+<!--    </logger>-->
+
     <root>
         <level value="WARN" />
         <appender-ref ref="console" />

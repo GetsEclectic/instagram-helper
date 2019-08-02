@@ -8,13 +8,13 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
 
     fun getUnfollowerPKs(): List<Long> {
         val followerPKs = apiClient.getFollowers().map { it.pk }.toHashSet()
-        println("followers size: ${followerPKs.size}")
+        logger.info("followers size: ${followerPKs.size}")
 
         val followingPKs = apiClient.getFollowing().map { it.pk }
-        println("following size: ${followingPKs.size}")
+        logger.info("following size: ${followingPKs.size}")
 
         val unfollowerPKs = followingPKs.minus(followerPKs)
-        println("unfollowers size: ${unfollowerPKs.size}")
+        logger.info("unfollowers size: ${unfollowerPKs.size}")
 
         return unfollowerPKs
     }
@@ -27,14 +27,14 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
 
         unfollowerPKs.filter { !whitelist.contains(it) }
             .map {
-            println("unfollowing: $it")
+                logger.info("unfollowing: $it")
             apiClient.unfollowByPK(it)
         }
     }
 
     // follows a user and adds them to the whitelist, so they are never automatically unfollowed
     fun followAndAddToWhitelist(username: String) {
-        println("whitelisting: $username")
+        logger.info("whitelisting: $username")
         val pk_to_whitelist = apiClient.getInstagramUser(username).pk
         apiClient.followByPK(pk_to_whitelist)
         database.addToWhitelist(apiClient.getOurPK(), pk_to_whitelist, Database.WHITELIST_REASONS.MANUAL)
@@ -48,7 +48,7 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
         // filter by intersecting keys
         val mutualFollowersMap = followingMap.filterKeys { followersMap.containsKey(it) }
 
-        println("mutual followers: ${mutualFollowersMap.size}")
+        logger.info("mutual followers: ${mutualFollowersMap.size}")
 
         val whitelist = database.getWhitelist(apiClient.getOurPK())
 
@@ -65,7 +65,7 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
         val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
 
         if(followinger.follower_count > 100 && followerRatio < 0.3) {
-            println("unfollowing ${followinger.username}")
+            logger.info("unfollowing ${followinger.username}")
             apiClient.unfollowByPK(followinger.pk)
         }
     }
@@ -95,7 +95,7 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
             }
             .filter { getRatioForUser(it.username) < 0.5 }
             .map {
-                println("following: ${it.pk}")
+                logger.info("following: ${it.pk}")
                 apiClient.followByPK(it.pk)
                 Thread.sleep(1000)
             }

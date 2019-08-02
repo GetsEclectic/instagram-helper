@@ -33,10 +33,11 @@ class Database {
     }
 
     private fun getWhitelist(ourPK: Long, whitelistReasons: List<WHITELIST_REASONS>): HashSet<Long> {
+        val whitelistReasonStrings = whitelistReasons.map { it.reasonString }
         return create.select()
             .from(UNFOLLOW_WHITELIST)
             .where(UNFOLLOW_WHITELIST.OUR_PK.eq(ourPK))
-            .and(UNFOLLOW_WHITELIST.WHITELIST_REASON.`in`(whitelistReasons))
+            .and(UNFOLLOW_WHITELIST.WHITELIST_REASON.`in`(whitelistReasonStrings))
             .fetch()
             .map { it.getValue(UNFOLLOW_WHITELIST.WHITELISTED_PK) }
             .toHashSet()
