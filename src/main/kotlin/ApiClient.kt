@@ -96,6 +96,10 @@ class ApiClient(instaName: String, instaPW: String) {
     fun followByPK(pk: Long): StatusResult {
         return sendRequestWithRetry(InstagramFollowRequest(pk))
     }
+
+    fun getOurPK(): Long {
+        return instagramUser.pk
+    }
 }
 
 // Instagram4j with a 30 second socket timeout on the http client

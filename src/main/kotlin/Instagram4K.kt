@@ -30,9 +30,9 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
     // follows a user and adds them to the whitelist, so they are never automatically unfollowed
     fun followAndAddToWhitelist(username: String) {
         println("whitelisting: $username")
-        val pk = apiClient.getInstagramUser(username).pk
-        apiClient.followByPK(pk)
-        database.addToWhitelist(pk, Database.WHITELIST_REASONS.MANUAL)
+        val pk_to_whitelist = apiClient.getInstagramUser(username).pk
+        apiClient.followByPK(pk_to_whitelist)
+        database.addToWhitelist(apiClient.getOurPK(), pk_to_whitelist, Database.WHITELIST_REASONS.MANUAL)
     }
 
     // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
@@ -79,7 +79,7 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
             .filter { !myFollowingPKs.contains(it.pk) }
             .map {
                 // blacklist everyone we scan, saves us from having to calculate a ratio every time we see them
-                database.addToBlacklist(it.pk)
+                database.addToBlacklist(apiClient.getOurPK(), it.pk)
                 it
             }
             .filter { getRatioForUser(it.username) < 0.5 }

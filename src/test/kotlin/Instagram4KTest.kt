@@ -87,9 +87,13 @@ internal class Instagram4KTest {
 
     @Nested
     inner class ListTest {
+        val ourPK: Long = 12
+
         @BeforeEach
         fun init() {
-            every { database.addToWhitelist(any(), any()) } returns (Unit)
+            every { database.addToWhitelist(any(), any(), any()) } returns (Unit)
+
+            every { apiClient.getOurPK() } returns (ourPK)
         }
 
         @Test
@@ -106,7 +110,7 @@ internal class Instagram4KTest {
             testObject.followAndAddToWhitelist(username)
 
             verify {
-                database.addToWhitelist(pk, Database.WHITELIST_REASONS.MANUAL)
+                database.addToWhitelist(ourPK, pk, Database.WHITELIST_REASONS.MANUAL)
                 apiClient.followByPK(pk)
             }
         }
@@ -237,6 +241,8 @@ internal class Instagram4KTest {
         val followerUserSummary = createInstagramUserSummary(pk = followerPK, username = followerName)
         val followerUser = createInstagramUser(pk = followerPK, followerCount = 100, followingCount = 400)
 
+        val ourPK: Long = 12
+
         @BeforeEach
         fun init() {
             every { apiClient.getInstagramUser(targetName)} returns (targetUser)
@@ -248,8 +254,10 @@ internal class Instagram4KTest {
             every { apiClient.getFollowing() } returns (setOf())
             every { apiClient.followByPK(followerPK)} returns (StatusResult())
 
-            every { database.addToBlacklist(any()) } returns (Unit)
+            every { database.addToBlacklist(any(), any()) } returns (Unit)
             every { database.getBlacklist() } returns (hashSetOf())
+
+            every { apiClient.getOurPK() } returns (ourPK)
         }
 
         @Test
@@ -258,7 +266,7 @@ internal class Instagram4KTest {
 
             verify {
                 apiClient.followByPK(followerPK)
-                database.addToBlacklist(followerPK)
+                database.addToBlacklist(ourPK, followerPK)
             }
         }
 
@@ -270,7 +278,7 @@ internal class Instagram4KTest {
 
             verify(exactly = 0) {
                 apiClient.followByPK(followerPK)
-                database.addToBlacklist(any())
+                database.addToBlacklist(any(), any())
             }
         }
 
@@ -285,7 +293,7 @@ internal class Instagram4KTest {
 
             verify(exactly = 0) {
                 apiClient.followByPK(followerPK)
-                database.addToBlacklist(any())
+                database.addToBlacklist(any(), any())
             }
         }
 
@@ -297,7 +305,7 @@ internal class Instagram4KTest {
 
             verify(exactly = 0) {
                 apiClient.followByPK(followerPK)
-                database.addToBlacklist(any())
+                database.addToBlacklist(any(), any())
             }
         }
 
@@ -312,7 +320,7 @@ internal class Instagram4KTest {
             }
 
             verify {
-                database.addToBlacklist(followerPK)
+                database.addToBlacklist(ourPK, followerPK)
             }
         }
     }
