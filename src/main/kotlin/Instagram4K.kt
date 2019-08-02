@@ -23,7 +23,7 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
     fun unfollowUnfollowers() {
         val unfollowerPKs = getUnfollowerPKs()
 
-        unfollowerPKs.filter { !getWhitelist().contains(it) }
+        unfollowerPKs.filter { !database.getWhitelist().contains(it) }
             .map {
             println("unfollowing: $it")
             apiClient.unfollowByPK(it)
@@ -31,11 +31,11 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
     }
 
     // follows a user and adds them to the whitelist, so they are never automatically unfollowed
-    fun addToWhitelist(username: String) {
+    fun followAndAddToWhitelist(username: String) {
         println("whitelisting: $username")
         val pk = apiClient.getInstagramUser(username).pk
         apiClient.followByPK(pk)
-        File(WHITELIST_FILE_PATH).appendText("$pk\n")
+        database.addToWhitelist(pk, Database.WHITELIST_REASONS.MANUAL)
     }
 
     // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
@@ -48,7 +48,7 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
 
         println("mutual followers: ${mutualFollowersMap.size}")
 
-        mutualFollowersMap.filter { !getWhitelist().contains(it.value.pk) }
+        mutualFollowersMap.filter { !database.getWhitelist().contains(it.value.pk) }
             .map {
                 val followinger = apiClient.getInstagramUser(it.value.username)
                 val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
@@ -60,10 +60,6 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
 
                 Thread.sleep(1000)
             }
-    }
-
-    fun getWhitelist(): HashSet<Long> {
-        return newlineDelimitedFilenameToHashSet(WHITELIST_FILE_PATH)
     }
 
     fun newlineDelimitedFilenameToHashSet(fileName: String): HashSet<Long> {

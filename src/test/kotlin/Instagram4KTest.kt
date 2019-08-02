@@ -57,9 +57,7 @@ internal class Instagram4KTest {
                     StatusResult()
                     )
 
-            mockkStatic("kotlin.io.FilesKt__FileReadWriteKt")
-
-            every { File(WHITELIST_FILE_PATH).readLines() } returns (listOf("7"))
+            every { database.getWhitelist() } returns (hashSetOf(7))
         }
 
         @Test
@@ -80,7 +78,7 @@ internal class Instagram4KTest {
 
         @Test
         fun `unfollowUnfollowers should not unfollow users in the whitelist`() {
-            every { File(WHITELIST_FILE_PATH).readLines() } returns (listOf("2"))
+            every { database.getWhitelist() } returns (hashSetOf(2))
 
             testObject.unfollowUnfollowers()
 
@@ -92,13 +90,11 @@ internal class Instagram4KTest {
     inner class ListTest {
         @BeforeEach
         fun init() {
-            mockkStatic("kotlin.io.FilesKt__FileReadWriteKt")
-
-            every { File(WHITELIST_FILE_PATH).appendText(any()) } returns (Unit)
+            every { database.addToWhitelist(any(), any()) } returns (Unit)
         }
 
         @Test
-        fun `addToWhitelist should call followByPK and append the pk for the user followed by a comma to the whitelist file`() {
+        fun `followAndAddToWhitelist should call followByPK and database addToWhitelist`() {
             val username = "Alice"
             val pk = 2.toLong()
 
@@ -108,24 +104,12 @@ internal class Instagram4KTest {
 
             every { apiClient.followByPK(any()) } returns (StatusResult())
 
-            testObject.addToWhitelist(username)
+            testObject.followAndAddToWhitelist(username)
 
             verify {
-                File(WHITELIST_FILE_PATH).appendText("$pk\n")
+                database.addToWhitelist(pk, Database.WHITELIST_REASONS.MANUAL)
                 apiClient.followByPK(pk)
             }
-        }
-
-        @Test
-        fun `getWhitelist should turn a file containing the lines 3 and 4 into a HashSet containing 3 and 4`() {
-            every { File(WHITELIST_FILE_PATH).readLines() } returns (listOf("3", "4"))
-
-            val whiteList = testObject.getWhitelist()
-
-            assertThat(whiteList).containsExactlyInAnyOrder(
-                3.toLong(),
-                4.toLong()
-            )
         }
     }
 
@@ -168,8 +152,7 @@ internal class Instagram4KTest {
 
             every { apiClient.unfollowByPK(any())} returns (StatusResult())
 
-            mockkStatic("kotlin.io.FilesKt__FileReadWriteKt")
-            every { File(WHITELIST_FILE_PATH).readLines() } returns (listOf("3", "4"))
+            every { database.getWhitelist() } returns (hashSetOf(3, 4))
 
             val mutualFollower = createInstagramUser(pk = pk, followerCount = 101, followingCount = 400)
             every { apiClient.getInstagramUser(username)} returns (mutualFollower)
@@ -210,7 +193,7 @@ internal class Instagram4KTest {
 
         @Test
         fun `pruneMutualFollowers should not call unfollowByPK for a user in the whitelist`() {
-            every { File(WHITELIST_FILE_PATH).readLines() } returns (listOf("$pk"))
+            every { database.getWhitelist() } returns (hashSetOf(pk))
 
             testObject.pruneMutualFollowers()
 
@@ -265,8 +248,6 @@ internal class Instagram4KTest {
                     })
             every { apiClient.getFollowing() } returns (setOf())
             every { apiClient.followByPK(followerPK)} returns (StatusResult())
-
-            mockkStatic("kotlin.io.FilesKt__FileReadWriteKt")
 
             every { database.addToBlacklist(any()) } returns (Unit)
             every { database.getBlacklist() } returns (hashSetOf())

@@ -28,6 +28,28 @@ class Database {
 
     fun addToBlacklist(pk: Long) {
         create.insertInto(FOLLOW_BLACKLIST, FOLLOW_BLACKLIST.OUR_PK, FOLLOW_BLACKLIST.BLACKLISTED_PK, FOLLOW_BLACKLIST.BLACKLIST_REASON)
-            .values(-1, pk, "scanned when copying followers")
+            .values(-1, pk, BLACKLIST_REASONS.SCANNED_WHEN_COPYING.reasonString)
+    }
+
+    fun getWhitelist(): HashSet<Long> {
+        return create.select()
+            .from(UNFOLLOW_WHITELIST)
+            .fetch()
+            .map { it.getValue(UNFOLLOW_WHITELIST.WHITELISTED_PK) }
+            .toHashSet()
+    }
+
+    fun addToWhitelist(pk: Long, whitelistReasons: WHITELIST_REASONS) {
+        create.insertInto(UNFOLLOW_WHITELIST, UNFOLLOW_WHITELIST.OUR_PK, UNFOLLOW_WHITELIST.WHITELISTED_PK, UNFOLLOW_WHITELIST.WHITELIST_REASON)
+            .values(-1, pk, whitelistReasons.reasonString)
+    }
+
+    enum class BLACKLIST_REASONS(val reasonString: String) {
+        SCANNED_WHEN_COPYING("scanned when copying followers")
+    }
+
+    enum class WHITELIST_REASONS(val reasonString: String) {
+        MANUAL("manually whitelisted"),
+        SCANNED_WHEN_PRUNING("scanned when pruning mutual followers")
     }
 }
