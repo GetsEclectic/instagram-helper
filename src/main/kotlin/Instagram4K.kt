@@ -20,7 +20,7 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
     fun unfollowUnfollowers() {
         val unfollowerPKs = getUnfollowerPKs()
 
-        unfollowerPKs.filter { !database.getWhitelist().contains(it) }
+        unfollowerPKs.filter { !database.getWhitelist(apiClient.getOurPK()).contains(it) }
             .map {
             println("unfollowing: $it")
             apiClient.unfollowByPK(it)
@@ -45,7 +45,7 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
 
         println("mutual followers: ${mutualFollowersMap.size}")
 
-        mutualFollowersMap.filter { !database.getWhitelist().contains(it.value.pk) }
+        mutualFollowersMap.filter { !database.getWhitelist(apiClient.getOurPK()).contains(it.value.pk) }
             .map {
                 val followinger = apiClient.getInstagramUser(it.value.username)
                 val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
@@ -72,7 +72,7 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
         val userToCopyFrom = apiClient.getInstagramUser(username)
         val otherUsersFollowers = apiClient.getFollowers(userToCopyFrom)
 
-        val blacklist = database.getBlacklist()
+        val blacklist = database.getBlacklist(apiClient.getOurPK())
         val myFollowingPKs = apiClient.getFollowing().toList().map { it.pk }
 
         otherUsersFollowers.filter { !blacklist.contains(it.pk) }

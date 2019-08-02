@@ -18,9 +18,10 @@ class Database {
         return DriverManager.getConnection(dbUrl, dbUser, dbPassword)
     }
 
-    fun getBlacklist(): HashSet<Long> {
+    fun getBlacklist(ourPK: Long): HashSet<Long> {
         return create.select()
             .from(FOLLOW_BLACKLIST)
+            .where(FOLLOW_BLACKLIST.OUR_PK.eq(ourPK))
             .fetch()
             .map { it.getValue(FOLLOW_BLACKLIST.BLACKLISTED_PK) }
             .toHashSet()
@@ -31,9 +32,10 @@ class Database {
             .values(our_pk, pk_to_blacklist, BLACKLIST_REASONS.SCANNED_WHEN_COPYING.reasonString)
     }
 
-    fun getWhitelist(): HashSet<Long> {
+    fun getWhitelist(ourPK: Long): HashSet<Long> {
         return create.select()
             .from(UNFOLLOW_WHITELIST)
+            .where(UNFOLLOW_WHITELIST.OUR_PK.eq(ourPK))
             .fetch()
             .map { it.getValue(UNFOLLOW_WHITELIST.WHITELISTED_PK) }
             .toHashSet()

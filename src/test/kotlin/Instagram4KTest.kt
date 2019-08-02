@@ -16,9 +16,13 @@ internal class Instagram4KTest {
 
     val testObject: Instagram4K = Instagram4K(apiClient, database)
 
+    val ourPK: Long = 12
+
     @BeforeEach
     fun init() {
         clearAllMocks()
+
+        every { apiClient.getOurPK() } returns (ourPK)
     }
 
     fun createInstagramUserSummary(pk: Long = 1, username: String = "Alice"): InstagramUserSummary {
@@ -56,7 +60,7 @@ internal class Instagram4KTest {
                     StatusResult()
                     )
 
-            every { database.getWhitelist() } returns (hashSetOf(7))
+            every { database.getWhitelist(ourPK) } returns (hashSetOf(7))
         }
 
         @Test
@@ -77,7 +81,7 @@ internal class Instagram4KTest {
 
         @Test
         fun `unfollowUnfollowers should not unfollow users in the whitelist`() {
-            every { database.getWhitelist() } returns (hashSetOf(2))
+            every { database.getWhitelist(ourPK) } returns (hashSetOf(2))
 
             testObject.unfollowUnfollowers()
 
@@ -87,8 +91,6 @@ internal class Instagram4KTest {
 
     @Nested
     inner class ListTest {
-        val ourPK: Long = 12
-
         @BeforeEach
         fun init() {
             every { database.addToWhitelist(any(), any(), any()) } returns (Unit)
@@ -155,7 +157,7 @@ internal class Instagram4KTest {
 
             every { apiClient.unfollowByPK(any())} returns (StatusResult())
 
-            every { database.getWhitelist() } returns (hashSetOf(3, 4))
+            every { database.getWhitelist(ourPK) } returns (hashSetOf(3, 4))
 
             val mutualFollower = createInstagramUser(pk = pk, followerCount = 101, followingCount = 400)
             every { apiClient.getInstagramUser(username)} returns (mutualFollower)
@@ -196,7 +198,7 @@ internal class Instagram4KTest {
 
         @Test
         fun `pruneMutualFollowers should not call unfollowByPK for a user in the whitelist`() {
-            every { database.getWhitelist() } returns (hashSetOf(pk))
+            every { database.getWhitelist(ourPK) } returns (hashSetOf(pk))
 
             testObject.pruneMutualFollowers()
 
@@ -255,7 +257,7 @@ internal class Instagram4KTest {
             every { apiClient.followByPK(followerPK)} returns (StatusResult())
 
             every { database.addToBlacklist(any(), any()) } returns (Unit)
-            every { database.getBlacklist() } returns (hashSetOf())
+            every { database.getBlacklist(ourPK) } returns (hashSetOf())
 
             every { apiClient.getOurPK() } returns (ourPK)
         }
@@ -299,7 +301,7 @@ internal class Instagram4KTest {
 
         @Test
         fun `copyFollowers should not call followByPK or addToBlacklist for a user that is in the blacklist`() {
-            every { database.getBlacklist() } returns (hashSetOf(followerPK))
+            every { database.getBlacklist(ourPK) } returns (hashSetOf(followerPK))
 
             testObject.copyFollowers(targetName)
 
