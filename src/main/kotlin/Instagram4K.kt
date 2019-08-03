@@ -95,7 +95,7 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
             }
             .filter { getRatioForUser(it.username) < 0.5 }
             .map {
-                logger.info("following: ${it.pk}")
+                logger.info("following: ${it.username}")
                 apiClient.followByPK(it.pk)
                 Thread.sleep(1000)
             }
