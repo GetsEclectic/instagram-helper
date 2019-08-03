@@ -19,7 +19,7 @@ class ApiClient(instaName: String, instaPW: String) {
     val logger = LogManager.getLogger(javaClass)
 
     enum class RequestStatus {
-        SUCCESS, FAIL_RATE_LIMIT, FAIL_NETWORK_EXCEPTION
+        SUCCESS, FAIL_RATE_LIMIT, FAIL_NETWORK_EXCEPTION, FAIL_ACTION_BLOCKED
     }
 
     data class Instagram4JResult<T>(val statusResult: T?, val requestStatus: RequestStatus)
@@ -33,6 +33,10 @@ class ApiClient(instaName: String, instaPW: String) {
 
             if(statusResult.status == "fail" && statusResult.message.startsWith("Please wait a few minutes")) {
                 return Instagram4JResult(statusResult, RequestStatus.FAIL_RATE_LIMIT)
+            }
+
+            if(statusResult.status == "fail" && statusResult.feedback_message.startsWith("This action was blocked.")) {
+                return Instagram4JResult(statusResult, RequestStatus.FAIL_ACTION_BLOCKED)
             }
         } catch (e: Exception) {
             when(e) {
@@ -61,6 +65,8 @@ class ApiClient(instaName: String, instaPW: String) {
                 val sleepTimeInSeconds = 5.toLong()
                 logger.info("network issue, sleeping for $sleepTimeInSeconds seconds and retrying")
                 Thread.sleep(sleepTimeInSeconds * 1000)
+            } else if (instagram4JResult.requestStatus == RequestStatus.FAIL_ACTION_BLOCKED) {
+                throw Exception("instagram action was blocked!")
             }
         } while(instagram4JResult.requestStatus != RequestStatus.SUCCESS)
 
