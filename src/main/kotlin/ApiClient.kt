@@ -3,6 +3,7 @@ import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.logging.log4j.LogManager
 import org.brunocvcunha.instagram4j.Instagram4j
 import org.brunocvcunha.instagram4j.requests.*
+import org.brunocvcunha.instagram4j.requests.payload.InstagramFeedItem
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import org.brunocvcunha.instagram4j.requests.payload.StatusResult
@@ -33,10 +34,10 @@ class ApiClient(instaName: String, instaPW: String) {
 
             if(statusResult.status == "fail" && statusResult.message.startsWith("Please wait a few minutes")) {
                 return Instagram4JResult(statusResult, RequestStatus.FAIL_RATE_LIMIT)
-            }
-
-            if(statusResult.status == "fail" && statusResult.feedback_message.startsWith("This action was blocked.")) {
+            } else if(statusResult.status == "fail" && statusResult.feedback_message != null && statusResult.feedback_message.startsWith("This action was blocked.")) {
                 return Instagram4JResult(statusResult, RequestStatus.FAIL_ACTION_BLOCKED)
+            } else if(statusResult.status == "fail") {
+                throw Exception("Unrecognized response: ${statusResult.message}")
             }
         } catch (e: Exception) {
             when(e) {
@@ -57,16 +58,20 @@ class ApiClient(instaName: String, instaPW: String) {
         do {
             instagram4JResult = sendRequestWithCatchNetworkExceptions(request)
 
-            if(instagram4JResult.requestStatus == RequestStatus.FAIL_RATE_LIMIT) {
-                val sleepTimeInMinutes = 10.toLong()
-                logger.info("got rate limited, sleeping for $sleepTimeInMinutes minutes and retrying")
-                Thread.sleep(sleepTimeInMinutes * 60 * 1000)
-            } else if (instagram4JResult.requestStatus == RequestStatus.FAIL_NETWORK_EXCEPTION) {
-                val sleepTimeInSeconds = 5.toLong()
-                logger.info("network issue, sleeping for $sleepTimeInSeconds seconds and retrying")
-                Thread.sleep(sleepTimeInSeconds * 1000)
-            } else if (instagram4JResult.requestStatus == RequestStatus.FAIL_ACTION_BLOCKED) {
-                throw Exception("instagram action was blocked!")
+            when {
+                instagram4JResult.requestStatus == RequestStatus.FAIL_RATE_LIMIT -> {
+                    val sleepTimeInMinutes = 10.toLong()
+                    logger.info("got rate limited, sleeping for $sleepTimeInMinutes minutes and retrying")
+                    Thread.sleep(sleepTimeInMinutes * 60 * 1000)
+                }
+
+                instagram4JResult.requestStatus == RequestStatus.FAIL_NETWORK_EXCEPTION -> {
+                    val sleepTimeInSeconds = 5.toLong()
+                    logger.info("network issue, sleeping for $sleepTimeInSeconds seconds and retrying")
+                    Thread.sleep(sleepTimeInSeconds * 1000)
+                }
+
+                instagram4JResult.requestStatus == RequestStatus.FAIL_ACTION_BLOCKED -> throw Exception("instagram action was blocked!")
             }
         } while(instagram4JResult.requestStatus != RequestStatus.SUCCESS)
 
@@ -98,8 +103,7 @@ class ApiClient(instaName: String, instaPW: String) {
     }
 
     fun unfollowByPK(pk: Long): StatusResult {
-        val statusResult = sendRequestWithRetry(InstagramUnfollowRequest(pk))
-        return statusResult
+        return sendRequestWithRetry(InstagramUnfollowRequest(pk))
     }
 
     fun followByPK(pk: Long): StatusResult {
@@ -108,6 +112,22 @@ class ApiClient(instaName: String, instaPW: String) {
 
     fun getOurPK(): Long {
         return instagramUser.pk
+    }
+
+    fun getTopPostsByTag(tag: String): Sequence<InstagramFeedItem> {
+        return sequence {
+            var nextMaxId: String? = null
+
+            do {
+                val tagFeedResult = sendRequestWithRetry(InstagramTagFeedRequest(tag, nextMaxId))
+                yieldAll(tagFeedResult.ranked_items)
+                nextMaxId = tagFeedResult.next_max_id
+            } while (nextMaxId != null)
+        }
+    }
+
+    fun getLikersByMediaId(mediaId: Long): List<InstagramUserSummary> {
+        return sendRequestWithRetry(InstagramGetMediaLikersRequest(mediaId)).users
     }
 }
 

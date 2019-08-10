@@ -1,7 +1,7 @@
 import org.apache.logging.log4j.LogManager
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 
-class Instagram4K(private val apiClient: ApiClient, private val database: Database = Database()) {
+class Instagram4K(val apiClient: ApiClient, private val database: Database = Database()) {
     constructor(instaName: String, instaPW: String) : this(ApiClient(instaName, instaPW))
 
     val logger = LogManager.getLogger(javaClass)
@@ -29,6 +29,7 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
             .map {
                 logger.info("unfollowing: $it")
             apiClient.unfollowByPK(it)
+                Thread.sleep(1000)
         }
     }
 
@@ -83,10 +84,25 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
         val userToCopyFrom = apiClient.getInstagramUser(username)
         val otherUsersFollowers = apiClient.getFollowers(userToCopyFrom)
 
+        followGoodUsers(otherUsersFollowers, numberToCopy)
+    }
+
+    fun followLikersOfTopPostsForTag(tag: String, numberToCopy: Int = 200 ) {
+        val topPosts = apiClient.getTopPostsByTag(tag)
+        val likers = topPosts.flatMap { apiClient.getLikersByMediaId(it.pk).asSequence() }
+
+        followGoodUsers(likers, numberToCopy)
+    }
+
+    // iterates through a sequence of InstagramUserSummarys and follows users:
+    //      not in the blacklist
+    //      not already being followed by us
+    //      with a ratio < 0.5
+    fun followGoodUsers(users: Sequence<InstagramUserSummary>, numberToFollow: Int) {
         val blacklist = database.getBlacklist(apiClient.getOurPK())
         val myFollowingPKs = apiClient.getFollowing().toList().map { it.pk }
 
-        otherUsersFollowers.filter { !blacklist.contains(it.pk) }
+        users.filter { !blacklist.contains(it.pk) }
             .filter { !myFollowingPKs.contains(it.pk) }
             .map {
                 // blacklist everyone we scan, saves us from having to calculate a ratio every time we see them
@@ -99,7 +115,7 @@ class Instagram4K(private val apiClient: ApiClient, private val database: Databa
                 apiClient.followByPK(it.pk)
                 Thread.sleep(1000)
             }
-            .take(numberToCopy)
+            .take(numberToFollow)
             .toList()
     }
 }
