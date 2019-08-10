@@ -4,3 +4,5 @@ gradle/
 out
 InstaScript.kt
 dbconfig.properties
+build/**
+buildSrc/build/**
