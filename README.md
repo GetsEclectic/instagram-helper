@@ -4,7 +4,7 @@
 
 kotlin instagram library using [instagram4j](https://github.com/brunocvcunha/instagram4j)
 
-## Examples
+## Example usage
 
 #### login
 
@@ -42,7 +42,8 @@ instagram4K.copyFollowers("name_of_a_similar_account")
 instagram4K.followAndAddToWhitelist("name_of_account_you_like")
 ```
 
-## Set up postgres db with docker
+## Set up
+####  create postgres db with docker
 ```bash
 docker run --name some-postgres -e POSTGRES_PASSWORD=<agoodpassword> -d -p 5432:5432 postgres
 
@@ -55,6 +56,25 @@ create database instagram4k;
 create user instagram4k_app with password '<anothergoodpassword>';
 
 grant connect on database instagram4k to instagram4k_app;
+```
+
+#### create dbconfig.settings
+```
+echo \
+"db.user=instagram4k_app
+db.password=<anothergoodpassword>
+db.url=jdbc:postgresql://localhost/instagram4k" > dbconfig.settings
+
+```
+
+#### apply db migrations
+```
+./gradlew flywayMigrate
+```
+
+#### generate source files for db access
+```
+./gradlew generateInstagram4KJooqSchemaSource
 ```
 
 ## Terms and conditions
