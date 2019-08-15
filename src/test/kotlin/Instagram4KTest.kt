@@ -60,7 +60,7 @@ internal class Instagram4KTest {
                     StatusResult()
                     )
 
-            every { database.getWhitelist(ourPK, Database.WHITELIST_REASONS.MANUAL) } returns (hashSetOf(7))
+            every { database.getWhitelist(ourPK, Database.WhitelistReason.MANUAL) } returns (hashSetOf(7))
         }
 
         @Test
@@ -81,14 +81,14 @@ internal class Instagram4KTest {
 
         @Test
         fun `unfollowUnfollowers should not unfollow users in the whitelist, also it should only care about the manual whitelist so it should not try to get the other whitelist reasons`() {
-            every { database.getWhitelist(ourPK, Database.WHITELIST_REASONS.MANUAL) } returns (hashSetOf(2))
+            every { database.getWhitelist(ourPK, Database.WhitelistReason.MANUAL) } returns (hashSetOf(2))
 
             testObject.unfollowUnfollowers()
 
             verify(exactly = 0) {
                 apiClient.unfollowByPK(any())
                 database.getWhitelist(any())
-                database.getWhitelist(any(), Database.WHITELIST_REASONS.SCANNED_WHEN_PRUNING)
+                database.getWhitelist(any(), Database.WhitelistReason.SCANNED_WHEN_PRUNING)
             }
         }
     }
@@ -116,7 +116,7 @@ internal class Instagram4KTest {
             testObject.followAndAddToWhitelist(username)
 
             verify {
-                database.addToWhitelist(ourPK, pk, Database.WHITELIST_REASONS.MANUAL)
+                database.addToWhitelist(ourPK, pk, Database.WhitelistReason.MANUAL)
                 apiClient.followByPK(pk)
             }
         }
@@ -174,7 +174,7 @@ internal class Instagram4KTest {
 
             verify {
                 apiClient.unfollowByPK(pk)
-                database.addToWhitelist(ourPK, pk, Database.WHITELIST_REASONS.SCANNED_WHEN_PRUNING)
+                database.addToWhitelist(ourPK, pk, Database.WhitelistReason.SCANNED_WHEN_PRUNING)
             }
         }
 
@@ -190,7 +190,7 @@ internal class Instagram4KTest {
             }
 
             verify {
-                database.addToWhitelist(ourPK, pk, Database.WHITELIST_REASONS.SCANNED_WHEN_PRUNING)
+                database.addToWhitelist(ourPK, pk, Database.WhitelistReason.SCANNED_WHEN_PRUNING)
             }
         }
 
@@ -206,7 +206,7 @@ internal class Instagram4KTest {
             }
 
             verify {
-                database.addToWhitelist(ourPK, pk, Database.WHITELIST_REASONS.SCANNED_WHEN_PRUNING)
+                database.addToWhitelist(ourPK, pk, Database.WhitelistReason.SCANNED_WHEN_PRUNING)
             }
         }
 
