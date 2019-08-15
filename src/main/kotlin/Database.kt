@@ -1,6 +1,7 @@
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL.*
 import org.jooq.instagram4k.Tables.*
+import org.jooq.instagram4k.tables.FollowerLog
 import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
@@ -83,10 +84,23 @@ class Database {
         }
     }
 
-    fun getFollowerLog(ourPK: Long): List<Long> {
+    // get current followers
+    // calculated as all follows for our pk where there isn't a later unfollow
+    fun getFollowers(ourPK: Long): List<Long> {
+        val fl: FollowerLog = FollowerLog().`as`("fl")
+        val flLaterUnfollow: FollowerLog = FollowerLog().`as`("fl_later_unfollow")
         return create.select()
-            .from(FOLLOWER_LOG)
-            .where(FOLLOWER_LOG.OUR_PK.eq(ourPK))
+            .from(fl)
+            .where(fl.OUR_PK.eq(ourPK))
+            .and(fl.ACTION.eq(Action.FOLLOWED.actionString))
+            .and(notExists(
+                create.selectOne()
+                    .from(flLaterUnfollow)
+                    .where(flLaterUnfollow.OUR_PK.eq(fl.OUR_PK))
+                    .and(flLaterUnfollow.FOLLOWER_PK.eq(fl.FOLLOWER_PK))
+                    .and(flLaterUnfollow.ID.greaterThan(fl.ID))
+                    .and(flLaterUnfollow.ACTION.eq(Action.UNFOLLOWED.actionString))
+            ))
             .fetch()
             .map { it.getValue(FOLLOWER_LOG.FOLLOWER_PK) }
     }

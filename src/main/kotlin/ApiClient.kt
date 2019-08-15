@@ -130,6 +130,10 @@ class ApiClient(instaName: String, instaPW: String) {
     fun getUserFeed(userPK: Long = instagramUser.pk): List<InstagramFeedItem> {
         return sendRequestWithRetry(InstagramUserFeedRequest(userPK)).items
     }
+
+    fun getOurUsername(): String {
+        return instagramUser.getUsername()
+    }
 }
 
 // Instagram4j with a 30 second socket timeout on the http client
