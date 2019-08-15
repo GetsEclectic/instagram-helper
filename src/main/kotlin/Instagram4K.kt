@@ -133,4 +133,15 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             database.addToLikerLog(ourPK, mediaID, newLikerPKs)
         }
     }
+
+    // saves followers to the database
+    fun recordFollowers() {
+        val ourPK = apiClient.getOurPK()
+        val followers = apiClient.getFollowers().map { it.pk }
+        val existingFollowers = database.getFollowerLog(ourPK)
+        val newFollowers = followers.minus(existingFollowers)
+        val unFollowers = existingFollowers.minus(followers)
+        database.addToFollowerLog(ourPK, Database.Action.FOLLOWED, newFollowers.toList())
+        database.addToFollowerLog(ourPK, Database.Action.UNFOLLOWED, unFollowers.toList())
+    }
 }

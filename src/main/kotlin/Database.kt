@@ -76,6 +76,30 @@ class Database {
             .map { it.getValue(LIKER_LOG.LIKER_PK) }
     }
 
+    fun addToFollowerLog(ourPK: Long, action: Action, followerPKList: List<Long>) {
+        followerPKList.map {
+            create.insertInto(FOLLOWER_LOG, FOLLOWER_LOG.OUR_PK, FOLLOWER_LOG.ACTION, FOLLOWER_LOG.FOLLOWER_PK)
+                .values(ourPK, action.actionString, it).execute()
+        }
+    }
+
+    fun getFollowerLog(ourPK: Long): List<Long> {
+        return create.select()
+            .from(FOLLOWER_LOG)
+            .where(FOLLOWER_LOG.OUR_PK.eq(ourPK))
+            .fetch()
+            .map { it.getValue(FOLLOWER_LOG.FOLLOWER_PK) }
+    }
+
+    enum class Action(val actionString: String) {
+        FOLLOWED("followed"),
+        UNFOLLOWED("unfollowed");
+
+        override fun toString(): String {
+            return actionString
+        }
+    }
+
     enum class BlacklistReason(val reasonString: String) {
         SCANNED_WHEN_COPYING("scanned when copying followers");
 
