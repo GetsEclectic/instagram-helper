@@ -60,6 +60,22 @@ class Database {
             .values(ourPK, requestedPK, requestedUsername).execute()
     }
 
+    fun addToLikerLog(ourPK: Long, mediaID: Long, likerPKList: List<Long>) {
+        likerPKList.map {
+            create.insertInto(LIKER_LOG, LIKER_LOG.OUR_PK, LIKER_LOG.MEDIA_ID, LIKER_LOG.LIKER_PK)
+                .values(ourPK, mediaID, it).execute()
+        }
+    }
+
+    fun getLikersForPost(ourPK: Long, mediaID: Long): List<Long> {
+        return create.select()
+            .from(LIKER_LOG)
+            .where(LIKER_LOG.OUR_PK.eq(ourPK))
+            .and(LIKER_LOG.MEDIA_ID.eq(mediaID))
+            .fetch()
+            .map { it.getValue(LIKER_LOG.LIKER_PK) }
+    }
+
     enum class BLACKLIST_REASONS(val reasonString: String) {
         SCANNED_WHEN_COPYING("scanned when copying followers");
 

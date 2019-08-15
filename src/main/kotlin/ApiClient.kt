@@ -3,10 +3,7 @@ import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.logging.log4j.LogManager
 import org.brunocvcunha.instagram4j.Instagram4j
 import org.brunocvcunha.instagram4j.requests.*
-import org.brunocvcunha.instagram4j.requests.payload.InstagramFeedItem
-import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
-import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
-import org.brunocvcunha.instagram4j.requests.payload.StatusResult
+import org.brunocvcunha.instagram4j.requests.payload.*
 import java.lang.Exception
 import java.net.SocketException
 import java.net.SocketTimeoutException
@@ -128,6 +125,10 @@ class ApiClient(instaName: String, instaPW: String) {
 
     fun getLikersByMediaId(mediaId: Long): List<InstagramUserSummary> {
         return sendRequestWithRetry(InstagramGetMediaLikersRequest(mediaId)).users
+    }
+
+    fun getUserFeed(userPK: Long = instagramUser.pk): List<InstagramFeedItem> {
+        return sendRequestWithRetry(InstagramUserFeedRequest(userPK)).items
     }
 }
 
