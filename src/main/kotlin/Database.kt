@@ -29,10 +29,10 @@ class Database {
 
     fun addToBlacklist(ourPk: Long, pkToBlacklist: Long) {
         create.insertInto(FOLLOW_BLACKLIST, FOLLOW_BLACKLIST.OUR_PK, FOLLOW_BLACKLIST.BLACKLISTED_PK, FOLLOW_BLACKLIST.BLACKLIST_REASON)
-            .values(ourPk, pkToBlacklist, BLACKLIST_REASONS.SCANNED_WHEN_COPYING.reasonString).execute()
+            .values(ourPk, pkToBlacklist, BlacklistReason.SCANNED_WHEN_COPYING.reasonString).execute()
     }
 
-    private fun getWhitelist(ourPK: Long, whitelistReasons: List<WHITELIST_REASONS>): HashSet<Long> {
+    private fun getWhitelist(ourPK: Long, whitelistReasons: List<WhitelistReason>): HashSet<Long> {
         return create.select()
             .from(UNFOLLOW_WHITELIST)
             .where(UNFOLLOW_WHITELIST.OUR_PK.eq(ourPK))
@@ -42,17 +42,17 @@ class Database {
             .toHashSet()
     }
 
-    fun getWhitelist(ourPK: Long, whitelistReasons: WHITELIST_REASONS): HashSet<Long> {
-        return getWhitelist(ourPK, listOf(whitelistReasons))
+    fun getWhitelist(ourPK: Long, whitelistReason: WhitelistReason): HashSet<Long> {
+        return getWhitelist(ourPK, listOf(whitelistReason))
     }
 
     fun getWhitelist(ourPK: Long): HashSet<Long> {
-        return getWhitelist(ourPK, listOf(WHITELIST_REASONS.MANUAL, WHITELIST_REASONS.SCANNED_WHEN_PRUNING))
+        return getWhitelist(ourPK, listOf(WhitelistReason.MANUAL, WhitelistReason.SCANNED_WHEN_PRUNING))
     }
 
-    fun addToWhitelist(ourPk: Long, pkToWhitelist: Long, whitelistReasons: WHITELIST_REASONS) {
+    fun addToWhitelist(ourPk: Long, pkToWhitelist: Long, whitelistReason: WhitelistReason) {
         create.insertInto(UNFOLLOW_WHITELIST, UNFOLLOW_WHITELIST.OUR_PK, UNFOLLOW_WHITELIST.WHITELISTED_PK, UNFOLLOW_WHITELIST.WHITELIST_REASON)
-            .values(ourPk, pkToWhitelist, whitelistReasons.reasonString).execute()
+            .values(ourPk, pkToWhitelist, whitelistReason.reasonString).execute()
     }
 
     fun recordFollowRequest(ourPK: Long, requestedPK: Long, requestedUsername: String) {
@@ -76,7 +76,7 @@ class Database {
             .map { it.getValue(LIKER_LOG.LIKER_PK) }
     }
 
-    enum class BLACKLIST_REASONS(val reasonString: String) {
+    enum class BlacklistReason(val reasonString: String) {
         SCANNED_WHEN_COPYING("scanned when copying followers");
 
         override fun toString(): String {
@@ -84,7 +84,7 @@ class Database {
         }
     }
 
-    enum class WHITELIST_REASONS(val reasonString: String) {
+    enum class WhitelistReason(val reasonString: String) {
         MANUAL("manually whitelisted"),
         SCANNED_WHEN_PRUNING("scanned when pruning mutual followers");
 
