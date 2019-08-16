@@ -22,7 +22,8 @@ group by
 -- percent of follow requests in the last 3 days that resulted in at least one like by user
 select
 	fr.our_pk,
-	sum(case when exists (select 1 from liker_log ll where ll.liker_pk = fr.requested_pk) then 1 else 0 end) / count(1)::decimal
+	sum(case when exists (select 1 from liker_log ll where ll.liker_pk = fr.requested_pk) then 1 else 0 end) / count(1)::decimal percent_liked,
+	count(1) num_follow_requests
 from
 	follow_request fr
 where
