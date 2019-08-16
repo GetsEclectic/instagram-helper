@@ -109,7 +109,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             val userToCopyFrom = apiClient.getInstagramUser(username)
             val otherUsersFollowers = apiClient.getFollowers(userToCopyFrom)
 
-            followGoodUsers(otherUsersFollowers, numberToCopy)
+            followGoodUsers(otherUsersFollowers, numberToCopy, username, Database.SourceType.USER)
         } catch (e: Exception) {
             logger.error(e)
         }
@@ -121,7 +121,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             val topPosts = apiClient.getTopPostsByTag(tag)
             val likers = topPosts.flatMap { apiClient.getLikersByMediaId(it.pk).asSequence() }
 
-            followGoodUsers(likers, numberToCopy)
+            followGoodUsers(likers, numberToCopy, tag, Database.SourceType.TAG_LIKE)
         } catch (e: Exception) {
             logger.error(e)
         }
@@ -131,7 +131,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
     //      not in the blacklist
     //      not already being followed by us
     //      with a ratio < 0.5
-    private fun followGoodUsers(users: Sequence<InstagramUserSummary>, numberToFollow: Int) {
+    private fun followGoodUsers(users: Sequence<InstagramUserSummary>, numberToFollow: Int, source: String, sourceType: Database.SourceType) {
         val blacklist = database.getBlacklist(apiClient.getOurPK())
         val myFollowingPKs = apiClient.getFollowing().toList().map { it.pk }
 
@@ -146,7 +146,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             .map {
                 logger.info("following: ${it.username}")
                 apiClient.followByPK(it.pk)
-                database.recordFollowRequest(apiClient.getOurPK(), it.pk, it.username)
+                database.recordFollowRequest(apiClient.getOurPK(), it.pk, it.username, source, sourceType)
                 Thread.sleep(1000)
             }
             .take(numberToFollow)

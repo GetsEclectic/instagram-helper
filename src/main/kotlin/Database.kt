@@ -56,9 +56,9 @@ class Database {
             .values(ourPk, pkToWhitelist, whitelistReason.reasonString).execute()
     }
 
-    fun recordFollowRequest(ourPK: Long, requestedPK: Long, requestedUsername: String) {
-        create.insertInto(FOLLOW_REQUEST, FOLLOW_REQUEST.OUR_PK, FOLLOW_REQUEST.REQUESTED_PK, FOLLOW_REQUEST.REQUESTED_USERNAME)
-            .values(ourPK, requestedPK, requestedUsername).execute()
+    fun recordFollowRequest(ourPK: Long, requestedPK: Long, requestedUsername: String, source: String, sourceType: SourceType) {
+        create.insertInto(FOLLOW_REQUEST, FOLLOW_REQUEST.OUR_PK, FOLLOW_REQUEST.REQUESTED_PK, FOLLOW_REQUEST.REQUESTED_USERNAME, FOLLOW_REQUEST.SOURCE, FOLLOW_REQUEST.SOURCE_TYPE)
+            .values(ourPK, requestedPK, requestedUsername, source, sourceType.typeString).execute()
     }
 
     fun addToLikerLog(ourPK: Long, mediaID: Long, likerPKList: List<Long>) {
@@ -128,6 +128,15 @@ class Database {
 
         override fun toString(): String {
             return reasonString
+        }
+    }
+
+    enum class SourceType(val typeString: String) {
+        TAG_LIKE("tag_like"),
+        USER("user");
+
+        override fun toString(): String {
+            return typeString
         }
     }
 }
