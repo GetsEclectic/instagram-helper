@@ -1,9 +1,12 @@
--- current follower count by user
+-- follower count at midnight each day by user
+with date_range as (select generate_series ( '2019-08-01'::timestamp, current_date + 1, '1 day'::interval) as followers_at)
 select
 	fl.our_pk,
+	followers_at,
 	count(1)
 from
-	follower_log fl
+	date_range dr
+	join follower_log fl on fl.insert_date < dr.followers_at
 where
 	fl."action" = 'followed'
 	and not exists (
@@ -17,7 +20,8 @@ where
 		and fl_later_unfollow.id > fl.id
 		and fl_later_unfollow."action" = 'unfollowed')
 group by
-	fl.our_pk;
+	fl.our_pk, followers_at
+	order by fl.our_pk, followers_at;
 
 -- percent of follow requests in the last 3 days that resulted in at least one like by user
 select
