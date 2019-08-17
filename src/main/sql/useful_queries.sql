@@ -23,6 +23,22 @@ group by
 	fl.our_pk, followers_at
 	order by fl.our_pk, followers_at;
 
+-- follows per day by user
+select
+	fl.our_pk,
+	date_trunc('day', fl.insert_date),
+	count(1)
+from
+	follower_log fl
+where
+	fl."action" = 'followed'
+group by
+	fl.our_pk,
+	date_trunc('day', fl.insert_date)
+order by
+	fl.our_pk,
+	date_trunc('day', fl.insert_date);
+
 -- percent of follow requests in the last 3 days that resulted in at least one like by user
 select
 	fr.our_pk,
