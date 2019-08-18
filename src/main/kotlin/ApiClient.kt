@@ -81,8 +81,6 @@ class ApiClient(instaName: String, instaPW: String) {
     }
 
     fun getFollowers(instagramUser: InstagramUser = this.instagramUser): Sequence<InstagramUserSummary> {
-        logger.info("getting followers for: ${instagramUser.username}")
-
         return sequence {
             var nextMaxId: String? = null
 
