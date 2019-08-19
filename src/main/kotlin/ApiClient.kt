@@ -93,7 +93,6 @@ class ApiClient(instaName: String, instaPW: String) {
     }
 
     fun getFollowing(): Set<InstagramUserSummary> {
-        logger.info("getting following for: ${instagramUser.username}")
         return HashSet(sendRequestWithRetry(InstagramGetUserFollowingRequest(instagramUser.pk)).getUsers())
     }
 

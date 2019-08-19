@@ -13,11 +13,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
 
     fun getUnfollowerPKs(): List<Long> {
         val followerPKs = apiClient.getFollowers().map { it.pk }.toHashSet()
-        logger.info("followers size: ${followerPKs.size}")
-
         val followingPKs = apiClient.getFollowing().map { it.pk }
-        logger.info("following size: ${followingPKs.size}")
-
         val unfollowerPKs = followingPKs.minus(followerPKs)
         logger.info("unfollowers size: ${unfollowerPKs.size}")
 
