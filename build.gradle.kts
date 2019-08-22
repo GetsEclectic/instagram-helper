@@ -22,8 +22,8 @@ dependencies {
     compile("org.apache.logging.log4j:log4j-core:2.12.0")
     compile("org.apache.logging.log4j:log4j-api:2.12.0")
 
-    compile("org.postgresql:postgresql:9.3-1100-jdbc4")
-    jooqRuntime("org.postgresql:postgresql:9.3-1100-jdbc4")
+    compile("org.postgresql:postgresql:42.2.6")
+    jooqRuntime("org.postgresql:postgresql:42.2.6")
     compile("org.jooq:jooq:3.11.11")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.5.1")

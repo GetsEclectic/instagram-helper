@@ -43,44 +43,20 @@ instagram4K.followAndAddToWhitelist("name_of_account_you_like")
 ```
 
 ## Set up
-####  create postgres db with docker
 ```bash
-docker run --name some-postgres -e POSTGRES_PASSWORD=<agoodpassword> -d -p 5432:5432 postgres
-
-docker exec -it <containerid> bash
-
-psql -U postgres
-
-create database instagram4k;
-
-create user instagram4k_app with password '<anothergoodpassword>';
-
-grant connect on database instagram4k to instagram4k_app;
+./setUpDb.sh
 ```
 
-#### create dbconfig.settings
-```
-echo \
-"db.user=instagram4k_app
-db.password=<anothergoodpassword>
-db.url=jdbc:postgresql://localhost/instagram4k" > dbconfig.settings
-
-```
-
-#### apply db migrations
-```
-./gradlew flywayMigrate
-```
-
-#### generate source files for db access
-```
-./gradlew generateInstagram4KJooqSchemaSource
-```
+this will:
+- start a postgres 11 docker container
+- create an instagram4k database and instagram4k_app user
+- create a local dbconfig.properties file containing the user password, this is used by the app, flyway, and jooq
+- run the flywayMigrate and generateInstagram4KJooqSchemaSource gradle tasks
 
 ## Terms and conditions
 
-- You will NOT use this API for marketing purposes (spam, botting, harassment, massive bulk messaging...).
-- We do NOT give support to anyone who wants to use this API to send spam or commit other crimes.
+- You will NOT use this library for marketing purposes (spam, botting, harassment, massive bulk messaging...).
+- We do NOT give support to anyone who wants to use this library to send spam or commit other crimes.
 - We reserve the right to block any user of this repository that does not meet these conditions.
 
 ### Legal
