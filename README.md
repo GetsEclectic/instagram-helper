@@ -30,6 +30,12 @@ instagram4K.unfollowUnfollowers()
 instagram4K.pruneMutualFollowers()
 ```
 
+#### follow some people that liked one of the top posts for a tag and will probably follow you back and like your posts
+
+```kotlin
+instagram4K.followLikersOfTopPostsForTag("a_relevant_tag")
+```
+
 #### follow some people that are following a similar account and will probably follow you back
 
 ```kotlin
