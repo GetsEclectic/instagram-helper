@@ -39,7 +39,7 @@ order by
 	fl.our_pk,
 	date_trunc('day', fl.insert_date);
 
--- percent of follow requests in the last 30 days that resulted in at least one like by user, by day
+-- percent of follow requests in the last 30 days that resulted in at least one like, by user, by day
 select
 	fr.our_pk,
 	date_trunc('day', fr.insert_date),
@@ -54,4 +54,21 @@ group by
 	date_trunc('day', fr.insert_date)
 order by
 	fr.our_pk,
+	date_trunc('day', fr.insert_date);
+
+-- percent of follow requests since copy from tag vs copy from user ab test started that resulted in at least one like, by source_type, by day
+select
+	fr.source_type,
+	date_trunc('day', fr.insert_date),
+	sum(case when exists (select 1 from liker_log ll where ll.liker_pk = fr.requested_pk) then 1 else 0 end) / count(1)::decimal percent_liked,
+	count(1) num_follow_requests
+from
+	follow_request fr
+where
+	fr.insert_date > date '2019-08-24'
+group by
+	fr.source_type,
+	date_trunc('day', fr.insert_date)
+order by
+	fr.source_type,
 	date_trunc('day', fr.insert_date);
