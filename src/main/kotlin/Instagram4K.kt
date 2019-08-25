@@ -1,6 +1,7 @@
 import org.apache.logging.log4j.LogManager
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import java.lang.Exception
+import java.util.regex.Pattern
 
 class Instagram4K(val apiClient: ApiClient, private val database: Database = Database()) {
     constructor(instaName: String, instaPW: String) : this(ApiClient(instaName, instaPW))
@@ -182,5 +183,24 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
         }  catch (e: Exception) {
             logger.error(e)
         }
+    }
+
+    // this only looks at the caption
+    // to make it work for tags in comments we would need to scan a number of comments, not sure what order they are returned in, might have to scan a lot...
+    fun getRecentTagsFromUserFeed(userPK: Long = apiClient.getOurPK()): Set<String> {
+        val userFeed = apiClient.getUserFeed(userPK)
+        var tagSet: Set<String> = emptySet()
+        userFeed.map {
+            it.caption?.text?.let {
+                val words = it.split(Pattern.compile("[^a-zA-Z_0-9#]"))
+                words.map {
+                    if(it.startsWith("#")) {
+                        tagSet = tagSet.plus(it)
+                    }
+                }
+            }
+        }
+
+        return tagSet
     }
 }
