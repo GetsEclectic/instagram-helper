@@ -7,6 +7,8 @@ import org.brunocvcunha.instagram4j.requests.payload.*
 import java.lang.Exception
 import java.net.SocketException
 import java.net.SocketTimeoutException
+import java.time.LocalDateTime
+import java.time.ZoneId
 import javax.net.ssl.SSLProtocolException
 
 // this class holds the functions that call Instagram4J and do simple result processing
@@ -52,6 +54,8 @@ class ApiClient(instaName: String, instaPW: String) {
     private fun <T: StatusResult> sendRequestWithRetry(request: InstagramRequest<T>): T {
         var instagram4JResult: Instagram4JResult<T>
 
+        Thread.sleep((500 + (0..1000).random()).toLong())
+
         do {
             instagram4JResult = sendRequestWithCatchNetworkExceptions(request)
 
@@ -76,7 +80,6 @@ class ApiClient(instaName: String, instaPW: String) {
     }
 
     fun getInstagramUser(name: String): InstagramUser {
-        Thread.sleep(1000)
         return sendRequestWithRetry(InstagramSearchUsernameRequest(name)).user
     }
 
@@ -124,12 +127,33 @@ class ApiClient(instaName: String, instaPW: String) {
         return sendRequestWithRetry(InstagramGetMediaLikersRequest(mediaId)).users
     }
 
-    fun getUserFeed(userPK: Long = instagramUser.pk): List<InstagramFeedItem> {
-        return sendRequestWithRetry(InstagramUserFeedRequest(userPK)).items
+    fun getUserFeed(userPK: Long = instagramUser.pk): Sequence<InstagramFeedItem> {
+        val minTimestamp = LocalDateTime.now().minusDays(30).atZone(ZoneId.of("UTC-05:00")).toInstant().toEpochMilli() / 1000
+        val maxTimestamp = LocalDateTime.now().plusDays(1).atZone(ZoneId.of("UTC-05:00")).toInstant().toEpochMilli() / 1000
+
+        return sequence {
+            var nextMaxId: String? = null
+
+            do {
+                val userFeedResult = sendRequestWithRetry(InstagramUserFeedRequest(userPK, nextMaxId, minTimestamp, maxTimestamp))
+                yieldAll(userFeedResult.items)
+                nextMaxId = userFeedResult.next_max_id
+            } while (nextMaxId != null)
+        }
     }
 
     fun getOurUsername(): String {
         return instagramUser.getUsername()
+    }
+
+    fun getMediaCountForTag(tag: String): Int {
+        val searchResult = sendRequestWithRetry(InstagramSearchTagsRequest(tag))
+        val theTag = searchResult.results.filter { it.name == tag }
+        return if(theTag.isNotEmpty()) {
+            theTag[0].media_count
+        } else {
+            0
+        }
     }
 }
 

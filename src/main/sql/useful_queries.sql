@@ -61,6 +61,7 @@ select
 	fr.source_type,
 	date_trunc('day', fr.insert_date),
 	sum(case when exists (select 1 from liker_log ll where ll.liker_pk = fr.requested_pk) then 1 else 0 end) / count(1)::decimal percent_liked,
+    sum(case when exists (select 1 from liker_log ll where ll.liker_pk = fr.requested_pk) then 1 else 0 end) num_liked,
 	count(1) num_follow_requests
 from
 	follow_request fr

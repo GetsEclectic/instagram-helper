@@ -1,4 +1,5 @@
 import org.apache.logging.log4j.LogManager
+import org.brunocvcunha.instagram4j.requests.payload.InstagramFeedItem
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import java.lang.Exception
 import java.util.regex.Pattern
@@ -33,7 +34,6 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
                 .map {
                     logger.info("unfollowing: $it")
                     apiClient.unfollowByPK(it)
-                    Thread.sleep(1000)
                 }
         } catch (e: Exception) {
             logger.error(e)
@@ -144,7 +144,6 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
                 logger.info("following: ${it.username}")
                 apiClient.followByPK(it.pk)
                 database.recordFollowRequest(apiClient.getOurPK(), it.pk, it.username, source, sourceType)
-                Thread.sleep(1000)
             }
             .take(numberToFollow)
             .toList()
@@ -187,20 +186,60 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
 
     // this only looks at the caption
     // to make it work for tags in comments we would need to scan a number of comments, not sure what order they are returned in, might have to scan a lot...
-    fun getRecentTagsFromUserFeed(userPK: Long = apiClient.getOurPK()): Set<String> {
-        val userFeed = apiClient.getUserFeed(userPK)
-        var tagSet: Set<String> = emptySet()
-        userFeed.map {
-            it.caption?.text?.let {
-                val words = it.split(Pattern.compile("[^a-zA-Z_0-9#]"))
-                words.map {
-                    if(it.startsWith("#")) {
-                        tagSet = tagSet.plus(it)
+    fun getSetOfRecentTagsFromUserFeed(userPK: Long = apiClient.getOurPK()): Set<String> {
+        val userFeed = apiClient.getUserFeed(userPK).toList()
+        return getTagsFromCaptionsInFeedItemList(userFeed).toSet()
+    }
+
+    private fun getTagsFromCaptionsInFeedItemList(instagramFeedItems: List<InstagramFeedItem>): List<String> {
+        val tagList: MutableList<String> = mutableListOf()
+        instagramFeedItems.map {
+            it.caption?.text?.let { captionText ->
+                val validTagCharacters = "a-zA-Z_0-9#"
+                val words = captionText.split(Pattern.compile("[^$validTagCharacters]"))
+
+                words.map { word ->
+                    if(word.startsWith("#") && word.length > 1) {
+                        tagList += word.drop(1)
                     }
                 }
             }
         }
-
-        return tagSet
+        return tagList
     }
+
+    // gets the recent tags for a user
+    // gets the tags from the top posts for those tags
+    // returns a map containing tags as keys and frequencies as values
+    fun getTagFrequencyMap(): MutableMap<String, Int> {
+        val frequencyMap = mutableMapOf<String, Int>()
+        val recentTags = getSetOfRecentTagsFromUserFeed()
+        recentTags.map { recentTag ->
+            logger.error("recentTag: $recentTag")
+            val topPosts = apiClient.getTopPostsByTag(recentTag).take(9).toList()
+            val topPostTags = getTagsFromCaptionsInFeedItemList(topPosts)
+            topPostTags.map {topPostTag ->
+                if(topPostTag != recentTag) {
+                    val newCount = frequencyMap.getOrDefault(topPostTag, 0) + 1
+                    frequencyMap[topPostTag] = newCount
+                }
+            }
+        }
+        return frequencyMap
+    }
+
+    fun getTagFrequenciesAndMediaCounts(): MutableMap<String, TagInfo> {
+        val frequencyMap = getTagFrequencyMap()
+        val frequencyListSortedByFrequencies = frequencyMap.toList().sortedBy { (_, value) -> value }.reversed()
+        val frequencyAndMediaCountMap = mutableMapOf<String, TagInfo>()
+        frequencyListSortedByFrequencies.subList(0, 199).map {
+            val tag = it.first
+            val frequency = it.second
+            val mediaCount = apiClient.getMediaCountForTag(tag)
+            frequencyAndMediaCountMap.put(tag, TagInfo(frequency, mediaCount))
+        }
+        return frequencyAndMediaCountMap
+    }
+
+    data class TagInfo(val frequency: Int, val mediaCount: Int)
 }
