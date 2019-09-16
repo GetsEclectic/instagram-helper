@@ -31,6 +31,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             val whitelist = database.getWhitelist(apiClient.getOurPK(), Database.WhitelistReason.MANUAL)
 
             unfollowerPKs.filter { !whitelist.contains(it) }
+                .take(200)
                 .map {
                     logger.info("unfollowing: $it")
                     apiClient.unfollowByPK(it)
@@ -80,12 +81,12 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
         }
     }
 
-    // unfollows users that are unlikely to unfollow you, at least 100 followers and following at least 3x as many people as followers
+    // unfollows users that are unlikely to unfollow you, following at least 3x as many people as followers
     fun unfollowUserUnlikelyToUnfollowBack(user: InstagramUserSummary) {
         val followinger = apiClient.getInstagramUser(user.username)
         val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
 
-        if(followinger.follower_count > 100 && followerRatio < 0.3) {
+        if(followerRatio < 0.3) {
             logger.info("unfollowing ${followinger.username}")
             apiClient.unfollowByPK(followinger.pk)
         }
