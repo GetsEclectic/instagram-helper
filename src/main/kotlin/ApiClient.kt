@@ -9,7 +9,9 @@ import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.util.*
 import javax.net.ssl.SSLProtocolException
+import kotlin.collections.HashSet
 
 // this class holds the functions that call Instagram4J and do simple result processing
 class ApiClient(instaName: String, instaPW: String) {
@@ -36,7 +38,7 @@ class ApiClient(instaName: String, instaPW: String) {
             } else if(statusResult.status == "fail" && statusResult.feedback_message != null && statusResult.feedback_message.startsWith("This action was blocked.")) {
                 return Instagram4JResult(statusResult, RequestStatus.FAIL_ACTION_BLOCKED)
             } else if(statusResult.status == "fail") {
-                throw Exception("Unrecognized response: ${statusResult.message}")
+                throw Exception("Unrecognized response: $statusResult")
             }
         } catch (e: Exception) {
             when(e) {
@@ -155,6 +157,21 @@ class ApiClient(instaName: String, instaPW: String) {
             0
         }
     }
+
+//    fun getOurTimeline(): Sequence<InstagramFeedItem> {
+//        return sequence {
+//            var nextMaxId: String? = null
+//            var clientSessionId: String = UUID.randomUUID().toString()
+//
+//            do {
+//                val userTimelineResult = sendRequestWithRetry(InstagramTimelineFeedRequest(nextMaxId, clientSessionId))
+//                yieldAll(userTimelineResult.items)
+//                nextMaxId = userTimelineResult.next_max_id
+//                clientSessionId = userTimelineResult.client_session_id
+//                logger.error("nextMaxId: $nextMaxId, clientSessionId: $clientSessionId")
+//            } while (nextMaxId != null)
+//        }
+//    }
 }
 
 // Instagram4j with a 30 second socket timeout on the http client

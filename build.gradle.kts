@@ -1,6 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import nu.studer.gradle.jooq.JooqEdition
 import java.util.Properties
+import org.gradle.jvm.tasks.Jar
 
 plugins {
     kotlin("jvm") version "1.3.41"
@@ -13,11 +14,12 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     jcenter()
+//    mavenLocal()
 }
 
 dependencies {
     compile(kotlin("stdlib-jdk8"))
-    compile("org.brunocvcunha.instagram4j:instagram4j:1.11")
+    compile("org.brunocvcunha.instagram4j:instagram4j:1.12")
     compile("javax.annotation:javax.annotation-api:1.3.2")
     compile("org.apache.logging.log4j:log4j-core:2.12.0")
     compile("org.apache.logging.log4j:log4j-api:2.12.0")
@@ -79,4 +81,17 @@ jooq {
             }
         }
     }
+}
+
+
+
+val fatJar = task("fatJar", type = Jar::class) {
+    baseName = "${project.name}-fat"
+    manifest {
+        attributes["Implementation-Title"] = "Instagram4K"
+        attributes["Implementation-Version"] = version
+        attributes["Main-Class"] = "DeployKt"
+    }
+    from(configurations.runtimeClasspath.get().map({ if (it.isDirectory) it else zipTree(it) }))
+    with(tasks.jar.get() as CopySpec)
 }
