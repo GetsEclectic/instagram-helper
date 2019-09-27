@@ -1,5 +1,6 @@
 import org.apache.logging.log4j.LogManager
 import org.brunocvcunha.instagram4j.requests.payload.InstagramFeedItem
+import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import java.lang.Exception
 import java.util.regex.Pattern
@@ -45,7 +46,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
     fun followAndAddToWhitelist(username: String) {
         logger.info("whitelisting: $username")
         try {
-            val pk_to_whitelist = apiClient.getInstagramUser(username).pk
+            val pk_to_whitelist = getInstagramUserAndSaveJsonToDB(username).pk
             apiClient.followByPK(pk_to_whitelist)
             database.addToWhitelist(apiClient.getOurPK(), pk_to_whitelist, Database.WhitelistReason.MANUAL)
         } catch (e: Exception) {
@@ -83,7 +84,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
 
     // unfollows users that are unlikely to unfollow you, following at least 3x as many people as followers
     fun unfollowUserUnlikelyToUnfollowBack(user: InstagramUserSummary) {
-        val followinger = apiClient.getInstagramUser(user.username)
+        val followinger = getInstagramUserAndSaveJsonToDB(user.username)
         val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
 
         if(followerRatio < 0.3) {
@@ -93,8 +94,14 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
     }
 
     fun getRatioForUser(username: String): Double {
-        val user = apiClient.getInstagramUser(username)
+        val user = getInstagramUserAndSaveJsonToDB(username)
         return user.follower_count / user.following_count.toDouble()
+    }
+
+    fun getInstagramUserAndSaveJsonToDB(username: String): InstagramUser {
+        val user = apiClient.getInstagramUser(username)
+        database.upsertUserJson(user)
+        return user
     }
 
     // copies followers from another user, ignoring:
@@ -104,7 +111,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
     fun copyFollowers(username: String, numberToCopy: Int = 200) {
         logger.info("copying followers from $username")
         try {
-            val userToCopyFrom = apiClient.getInstagramUser(username)
+            val userToCopyFrom = getInstagramUserAndSaveJsonToDB(username)
             val otherUsersFollowers = apiClient.getFollowers(userToCopyFrom)
 
             followGoodUsers(otherUsersFollowers, numberToCopy, username, Database.SourceType.USER)

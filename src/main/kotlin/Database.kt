@@ -1,3 +1,6 @@
+import com.google.gson.Gson
+import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
+import org.jooq.JSONB
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL.*
 import org.jooq.instagram4k.Tables.*
@@ -5,6 +8,7 @@ import org.jooq.instagram4k.tables.FollowerLog
 import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
+import java.time.OffsetDateTime
 import java.util.*
 
 class Database {
@@ -103,6 +107,16 @@ class Database {
             ))
             .fetch()
             .map { it.getValue(FOLLOWER_LOG.FOLLOWER_PK) }
+    }
+
+    fun upsertUserJson(user: InstagramUser) {
+        val jsonString = Gson().toJson(user)
+        create.insertInto(INSTAGRAM_USER_JSON, INSTAGRAM_USER_JSON.USER_PK, INSTAGRAM_USER_JSON.JSON)
+            .values(user.pk, JSONB.valueOf(jsonString))
+            .onDuplicateKeyUpdate()
+            .set(INSTAGRAM_USER_JSON.JSON, JSONB.valueOf(jsonString))
+            .set(INSTAGRAM_USER_JSON.INSERT_DATE, OffsetDateTime.now())
+            .execute()
     }
 
     enum class Action(val actionString: String) {

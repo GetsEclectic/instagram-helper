@@ -23,10 +23,11 @@ dependencies {
     compile("javax.annotation:javax.annotation-api:1.3.2")
     compile("org.apache.logging.log4j:log4j-core:2.12.0")
     compile("org.apache.logging.log4j:log4j-api:2.12.0")
+    compile("com.google.code.gson:gson:2.8.5")
 
     compile("org.postgresql:postgresql:42.2.6")
     jooqRuntime("org.postgresql:postgresql:42.2.6")
-    compile("org.jooq:jooq:3.11.11")
+    compile("org.jooq:jooq:3.12.1")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.5.1")
     testImplementation("io.mockk:mockk:1.9")
@@ -50,7 +51,7 @@ flyway {
 }
 
 jooq {
-    version = "3.11.11"
+    version = "3.12.1"
     edition = JooqEdition.OSS
     "Instagram4K"(sourceSets["main"]) {
         jdbc {
