@@ -87,7 +87,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
         val followinger = getInstagramUserAndSaveJsonToDB(user.username)
         val followerRatio = followinger.follower_count / followinger.following_count.toDouble()
 
-        if(followerRatio < 0.3) {
+        if(followerRatio < 0.5) {
             logger.info("unfollowing ${followinger.username}")
             apiClient.unfollowByPK(followinger.pk)
         }
