@@ -119,6 +119,47 @@ class Database {
             .execute()
     }
 
+    fun getSecretLoginInfo(username: String): SecretLoginInfo? {
+        return create.select()
+            .from(SECRET_LOGIN_INFO)
+            .where(SECRET_LOGIN_INFO.USERNAME.eq(username))
+            .fetch()
+            .firstOrNull()
+            ?.let { SecretLoginInfo(it.getValue(SECRET_LOGIN_INFO.COOKIE_STORE_SERIALIZED), it.getValue(
+                SECRET_LOGIN_INFO.UUID)) }
+    }
+
+    fun upsertSecretLoginInfo(ourPK: Long, username: String, cookieStoreSerialized: ByteArray, uuid: String) {
+        create.insertInto(SECRET_LOGIN_INFO, SECRET_LOGIN_INFO.USER_PK, SECRET_LOGIN_INFO.USERNAME, SECRET_LOGIN_INFO.COOKIE_STORE_SERIALIZED, SECRET_LOGIN_INFO.UUID)
+            .values(ourPK, username, cookieStoreSerialized, uuid)
+            .onDuplicateKeyUpdate()
+            .set(SECRET_LOGIN_INFO.USERNAME, username)
+            .set(SECRET_LOGIN_INFO.COOKIE_STORE_SERIALIZED, cookieStoreSerialized)
+            .set(SECRET_LOGIN_INFO.UUID, uuid)
+            .set(SECRET_LOGIN_INFO.INSERT_DATE, OffsetDateTime.now())
+            .execute()
+    }
+
+    data class SecretLoginInfo(val cookieStoreSerialized: ByteArray, val uuid: String) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as SecretLoginInfo
+
+            if (!cookieStoreSerialized.contentEquals(other.cookieStoreSerialized)) return false
+            if (uuid != other.uuid) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = cookieStoreSerialized.contentHashCode()
+            result = 31 * result + uuid.hashCode()
+            return result
+        }
+    }
+
     enum class Action(val actionString: String) {
         FOLLOWED("followed"),
         UNFOLLOWED("unfollowed");

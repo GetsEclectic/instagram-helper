@@ -1,12 +1,16 @@
+import org.apache.http.client.CookieStore
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.logging.log4j.LogManager
 import org.brunocvcunha.instagram4j.Instagram4j
 import org.brunocvcunha.instagram4j.requests.*
 import org.brunocvcunha.instagram4j.requests.payload.*
+import java.io.*
 import java.lang.Exception
 import java.net.SocketException
 import java.net.SocketTimeoutException
+import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.*
@@ -14,11 +18,32 @@ import javax.net.ssl.SSLProtocolException
 import kotlin.collections.HashSet
 
 // this class holds the functions that call Instagram4J and do simple result processing
-class ApiClient(instaName: String, instaPW: String) {
-    private val instagram4j = Instagram4JWithTimeout(instaName, instaPW)
+class ApiClient(instaName: String, instaPW: String): Closeable {
+    private val instagram4j: Instagram4JWithTimeout
+    private val database: Database = Database()
+
+    init {
+        val secretLoginInfo = database.getSecretLoginInfo(instaName)
+
+        if(secretLoginInfo != null) {
+            val cookieStore = ObjectInputStream(secretLoginInfo.cookieStoreSerialized.inputStream()).readObject() as CookieStore
+            instagram4j = Instagram4JWithTimeout(instaName, cookieStore = cookieStore, uuid = secretLoginInfo.uuid)
+        } else {
+            instagram4j = Instagram4JWithTimeout(instaName, instaPW)
+        }
+    }
+
     private val instagramUser =  getInstagramUser(instaName)
 
     val logger = LogManager.getLogger(javaClass)
+
+    override fun close() {
+        val byteArrayOutputStream = ByteArrayOutputStream()
+        val objectOutputStream = ObjectOutputStream(byteArrayOutputStream)
+        objectOutputStream.writeObject(instagram4j.cookieStore)
+        val cookieStoreSerialized = byteArrayOutputStream.toByteArray()
+        database.upsertSecretLoginInfo(instagramUser.pk, instagramUser.getUsername(), cookieStoreSerialized, instagram4j.uuid)
+    }
 
     enum class RequestStatus {
         SUCCESS, FAIL_RATE_LIMIT, FAIL_NETWORK_EXCEPTION, FAIL_ACTION_BLOCKED
@@ -175,8 +200,14 @@ class ApiClient(instaName: String, instaPW: String) {
 }
 
 // Instagram4j with a 30 second socket timeout on the http client
-class Instagram4JWithTimeout(username: String, password: String): Instagram4j(username, password) {
+class Instagram4JWithTimeout(username: String, password: String = "fakepassword", cookieStore: CookieStore? = null, uuid: String? = null): Instagram4j(username, password) {
     init {
+        if(cookieStore != null) {
+            this.cookieStore = cookieStore
+            this.uuid = uuid
+            this.isLoggedIn = true
+        }
+
         setup()
 
         val requestConfig =
@@ -196,6 +227,8 @@ class Instagram4JWithTimeout(username: String, password: String): Instagram4j(us
 
         this.client = builder.build()
 
-        login()
+        if(!isLoggedIn) {
+            login()
+        }
     }
 }

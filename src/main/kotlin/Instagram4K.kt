@@ -2,10 +2,15 @@ import org.apache.logging.log4j.LogManager
 import org.brunocvcunha.instagram4j.requests.payload.InstagramFeedItem
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
+import java.io.Closeable
 import java.lang.Exception
 import java.util.regex.Pattern
 
-class Instagram4K(val apiClient: ApiClient, private val database: Database = Database()) {
+class Instagram4K(val apiClient: ApiClient, private val database: Database = Database()): Closeable {
+    override fun close() {
+        apiClient.close()
+    }
+
     constructor(instaName: String, instaPW: String) : this(ApiClient(instaName, instaPW))
 
     val logger = LogManager.getLogger(javaClass)
