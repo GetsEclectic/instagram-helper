@@ -60,9 +60,9 @@ class Database {
             .values(ourPk, pkToWhitelist, whitelistReason.reasonString).execute()
     }
 
-    fun recordAction(ourPK: Long, requestedPK: Long, requestedUsername: String, source: String, sourceType: SourceType) {
-        create.insertInto(ACTION_LOG, ACTION_LOG.OUR_PK, ACTION_LOG.REQUESTED_PK, ACTION_LOG.REQUESTED_USERNAME, ACTION_LOG.SOURCE, ACTION_LOG.SOURCE_TYPE)
-            .values(ourPK, requestedPK, requestedUsername, source, sourceType.typeString).execute()
+    fun recordAction(ourPK: Long, requestedPK: Long, requestedUsername: String, source: String, actionType: ActionType) {
+        create.insertInto(ACTION_LOG, ACTION_LOG.OUR_PK, ACTION_LOG.REQUESTED_PK, ACTION_LOG.REQUESTED_USERNAME, ACTION_LOG.SOURCE, ACTION_LOG.ACTION_TYPE)
+            .values(ourPK, requestedPK, requestedUsername, source, actionType.typeString).execute()
     }
 
     fun addToLikerLog(ourPK: Long, mediaID: Long, likerPKList: List<Long>) {
@@ -186,7 +186,7 @@ class Database {
         }
     }
 
-    enum class SourceType(val typeString: String) {
+    enum class ActionType(val typeString: String) {
         TAG_LIKE("tag_like"),
         USER("user");
 

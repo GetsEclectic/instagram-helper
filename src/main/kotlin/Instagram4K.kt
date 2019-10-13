@@ -120,7 +120,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             val userToCopyFrom = getInstagramUserAndSaveJsonToDB(username)
             val otherUsersFollowers = apiClient.getFollowers(userToCopyFrom)
 
-            followGoodUsers(otherUsersFollowers, numberToCopy, username, Database.SourceType.USER)
+            followGoodUsers(otherUsersFollowers, numberToCopy, username, Database.ActionType.USER)
         } catch (e: Exception) {
             logger.error(e)
         }
@@ -132,7 +132,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             val topPosts = apiClient.getTopPostsByTag(tag)
             val likers = topPosts.flatMap { apiClient.getLikersByMediaId(it.pk).asSequence() }
 
-            followGoodUsers(likers, numberToCopy, tag, Database.SourceType.TAG_LIKE)
+            followGoodUsers(likers, numberToCopy, tag, Database.ActionType.TAG_LIKE)
         } catch (e: Exception) {
             logger.error(e)
         }
@@ -144,7 +144,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             val topPosts = apiClient.getTopPostsByTag(tag)
             val likers = topPosts.flatMap { apiClient.getLikersByMediaId(it.pk).asSequence() }
 
-            followGoodUsers(likers, numberToLike, tag, Database.SourceType.TAG_LIKE)
+            followGoodUsers(likers, numberToLike, tag, Database.ActionType.TAG_LIKE)
         } catch (e: Exception) {
             logger.error(e)
         }
@@ -154,7 +154,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
     //      not in the blacklist
     //      not already being followed by us
     //      with a ratio < 0.5
-    private fun followGoodUsers(users: Sequence<InstagramUserSummary>, numberToFollow: Int, source: String, sourceType: Database.SourceType) {
+    private fun followGoodUsers(users: Sequence<InstagramUserSummary>, numberToFollow: Int, source: String, actionType: Database.ActionType) {
         val blacklist = database.getBlacklist(apiClient.getOurPK())
         val myFollowingPKs = apiClient.getFollowing().toList().map { it.pk }
 
@@ -169,7 +169,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             .map {
                 logger.info("following: ${it.username}")
                 apiClient.followByPK(it.pk)
-                database.recordAction(apiClient.getOurPK(), it.pk, it.username, source, sourceType)
+                database.recordAction(apiClient.getOurPK(), it.pk, it.username, source, actionType)
             }
             .take(numberToFollow)
             .toList()

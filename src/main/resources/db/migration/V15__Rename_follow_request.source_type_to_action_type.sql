@@ -1,0 +1,1 @@
+alter table action_log rename column source_type to action_type;
