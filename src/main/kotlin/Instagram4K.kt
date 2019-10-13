@@ -29,7 +29,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
     }
 
     // unfollows users that aren't following you
-    fun unfollowUnfollowers() {
+    fun unfollowUnfollowers(numToUnfollow: Int = 100) {
         logger.info("unfollowing unfollowers")
         try {
             val unfollowerPKs = getUnfollowerPKs()
@@ -37,7 +37,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             val whitelist = database.getWhitelist(apiClient.getOurPK(), Database.WhitelistReason.MANUAL)
 
             unfollowerPKs.filter { !whitelist.contains(it) }
-                .take(200)
+                .take(numToUnfollow)
                 .map {
                     logger.info("unfollowing: $it")
                     apiClient.unfollowByPK(it)
@@ -60,7 +60,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
     }
 
     // finds mutual followers and calls unfollowUserUnlikelyToUnfollowBack on the ones that aren't whitelisted
-    fun pruneMutualFollowers() {
+    fun pruneMutualFollowers(numToUnfollow: Int = 100) {
         logger.info("pruning mutual followers")
         try {
             val followingMap = apiClient.getFollowing().associateBy({ it.pk }, { it })
@@ -74,6 +74,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             val whitelist = database.getWhitelist(apiClient.getOurPK())
 
             mutualFollowersMap.filter { !whitelist.contains(it.value.pk) }
+                .entries.take(numToUnfollow)
                 .map {
                     database.addToWhitelist(
                         apiClient.getOurPK(),
