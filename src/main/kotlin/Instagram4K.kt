@@ -138,6 +138,18 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
         }
     }
 
+    fun likeLikersOfTopPostsForTag(tag: String, numberToLike: Int = 50) {
+        logger.info("liking likers of $tag")
+        try {
+            val topPosts = apiClient.getTopPostsByTag(tag)
+            val likers = topPosts.flatMap { apiClient.getLikersByMediaId(it.pk).asSequence() }
+
+            followGoodUsers(likers, numberToLike, tag, Database.SourceType.TAG_LIKE)
+        } catch (e: Exception) {
+            logger.error(e)
+        }
+    }
+
     // iterates through a sequence of InstagramUserSummarys and follows users:
     //      not in the blacklist
     //      not already being followed by us
@@ -157,7 +169,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             .map {
                 logger.info("following: ${it.username}")
                 apiClient.followByPK(it.pk)
-                database.recordFollowRequest(apiClient.getOurPK(), it.pk, it.username, source, sourceType)
+                database.recordAction(apiClient.getOurPK(), it.pk, it.username, source, sourceType)
             }
             .take(numberToFollow)
             .toList()

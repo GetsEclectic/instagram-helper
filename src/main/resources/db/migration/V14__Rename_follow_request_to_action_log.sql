@@ -1,0 +1,1 @@
+alter table follow_request rename to action_log;

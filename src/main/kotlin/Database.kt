@@ -60,8 +60,8 @@ class Database {
             .values(ourPk, pkToWhitelist, whitelistReason.reasonString).execute()
     }
 
-    fun recordFollowRequest(ourPK: Long, requestedPK: Long, requestedUsername: String, source: String, sourceType: SourceType) {
-        create.insertInto(FOLLOW_REQUEST, FOLLOW_REQUEST.OUR_PK, FOLLOW_REQUEST.REQUESTED_PK, FOLLOW_REQUEST.REQUESTED_USERNAME, FOLLOW_REQUEST.SOURCE, FOLLOW_REQUEST.SOURCE_TYPE)
+    fun recordAction(ourPK: Long, requestedPK: Long, requestedUsername: String, source: String, sourceType: SourceType) {
+        create.insertInto(ACTION_LOG, ACTION_LOG.OUR_PK, ACTION_LOG.REQUESTED_PK, ACTION_LOG.REQUESTED_USERNAME, ACTION_LOG.SOURCE, ACTION_LOG.SOURCE_TYPE)
             .values(ourPK, requestedPK, requestedUsername, source, sourceType.typeString).execute()
     }
 
