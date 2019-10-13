@@ -120,7 +120,11 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             val userToCopyFrom = getInstagramUserAndSaveJsonToDB(username)
             val otherUsersFollowers = apiClient.getFollowers(userToCopyFrom)
 
-            followGoodUsers(otherUsersFollowers, numberToCopy, username, Database.ActionType.FOLLOW_USER_FOLLOWER)
+            applyToGoodUsers(otherUsersFollowers, numberToCopy, true) {
+                logger.info("following: ${it.username}")
+                apiClient.followByPK(it.pk)
+                database.recordAction(apiClient.getOurPK(), it.pk, it.username, username, Database.ActionType.FOLLOW_USER_FOLLOWER)
+            }
         } catch (e: Exception) {
             logger.error(e)
         }
@@ -132,7 +136,11 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             val topPosts = apiClient.getTopPostsByTag(tag)
             val likers = topPosts.flatMap { apiClient.getLikersByMediaId(it.pk).asSequence() }
 
-            followGoodUsers(likers, numberToCopy, tag, Database.ActionType.FOLLOW_TAG_LIKER)
+            applyToGoodUsers(likers, numberToCopy, true) {
+                logger.info("following: ${it.username}")
+                apiClient.followByPK(it.pk)
+                database.recordAction(apiClient.getOurPK(), it.pk, it.username, tag, Database.ActionType.FOLLOW_TAG_LIKER)
+            }
         } catch (e: Exception) {
             logger.error(e)
         }
@@ -144,17 +152,23 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             val topPosts = apiClient.getTopPostsByTag(tag)
             val likers = topPosts.flatMap { apiClient.getLikersByMediaId(it.pk).asSequence() }
 
-            followGoodUsers(likers, numberToLike, tag, Database.ActionType.FOLLOW_TAG_LIKER)
+            applyToGoodUsers(likers, numberToLike, false) { userSummary ->
+                logger.info("liking posts by: ${userSummary.username}")
+                apiClient.getUserFeed(userSummary.pk).map {
+                    apiClient.likeMedia(it.pk)
+                }.take(3).toList()
+                database.recordAction(apiClient.getOurPK(), userSummary.pk, userSummary.username, tag, Database.ActionType.LIKE_TAG_LIKER)
+            }
         } catch (e: Exception) {
             logger.error(e)
         }
     }
 
-    // iterates through a sequence of InstagramUserSummarys and follows users:
+    // iterates through a sequence of InstagramUserSummarys and applies a function to users:
     //      not in the blacklist
     //      not already being followed by us
     //      with a ratio < 0.5
-    private fun followGoodUsers(users: Sequence<InstagramUserSummary>, numberToFollow: Int, source: String, actionType: Database.ActionType) {
+    private fun applyToGoodUsers(users: Sequence<InstagramUserSummary>, numberToApplyTo: Int, includePrivateUsers: Boolean, funToApply: (InstagramUserSummary) -> Unit) {
         val blacklist = database.getBlacklist(apiClient.getOurPK())
         val myFollowingPKs = apiClient.getFollowing().toList().map { it.pk }
 
@@ -165,13 +179,12 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
                 database.addToBlacklist(apiClient.getOurPK(), it.pk)
                 it
             }
+            .filter { includePrivateUsers || !it.is_private }
             .filter { getRatioForUser(it.username) < 0.5 }
             .map {
-                logger.info("following: ${it.username}")
-                apiClient.followByPK(it.pk)
-                database.recordAction(apiClient.getOurPK(), it.pk, it.username, source, actionType)
+                funToApply(it)
             }
-            .take(numberToFollow)
+            .take(numberToApplyTo)
             .toList()
     }
 

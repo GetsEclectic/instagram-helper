@@ -183,6 +183,10 @@ class ApiClient(instaName: String, instaPW: String): Closeable {
         }
     }
 
+    fun likeMedia(mediaId: Long): StatusResult {
+        return sendRequestWithRetry(InstagramLikeRequest(mediaId))
+    }
+
 //    fun getOurTimeline(): Sequence<InstagramFeedItem> {
 //        return sequence {
 //            var nextMaxId: String? = null
