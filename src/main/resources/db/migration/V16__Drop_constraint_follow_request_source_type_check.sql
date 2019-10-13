@@ -1,0 +1,1 @@
+alter table action_log drop constraint follow_request_source_type_check;

@@ -187,8 +187,9 @@ class Database {
     }
 
     enum class ActionType(val typeString: String) {
-        TAG_LIKE("tag_like"),
-        USER("user");
+        FOLLOW_TAG_LIKER("follow_tag_liker"),
+        FOLLOW_USER_FOLLOWER("follow_user_follower"),
+        LIKE_TAG_LIKER("like_tag_liker");
 
         override fun toString(): String {
             return typeString

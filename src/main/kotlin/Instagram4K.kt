@@ -120,7 +120,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             val userToCopyFrom = getInstagramUserAndSaveJsonToDB(username)
             val otherUsersFollowers = apiClient.getFollowers(userToCopyFrom)
 
-            followGoodUsers(otherUsersFollowers, numberToCopy, username, Database.ActionType.USER)
+            followGoodUsers(otherUsersFollowers, numberToCopy, username, Database.ActionType.FOLLOW_USER_FOLLOWER)
         } catch (e: Exception) {
             logger.error(e)
         }
@@ -132,7 +132,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             val topPosts = apiClient.getTopPostsByTag(tag)
             val likers = topPosts.flatMap { apiClient.getLikersByMediaId(it.pk).asSequence() }
 
-            followGoodUsers(likers, numberToCopy, tag, Database.ActionType.TAG_LIKE)
+            followGoodUsers(likers, numberToCopy, tag, Database.ActionType.FOLLOW_TAG_LIKER)
         } catch (e: Exception) {
             logger.error(e)
         }
@@ -144,7 +144,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             val topPosts = apiClient.getTopPostsByTag(tag)
             val likers = topPosts.flatMap { apiClient.getLikersByMediaId(it.pk).asSequence() }
 
-            followGoodUsers(likers, numberToLike, tag, Database.ActionType.TAG_LIKE)
+            followGoodUsers(likers, numberToLike, tag, Database.ActionType.FOLLOW_TAG_LIKER)
         } catch (e: Exception) {
             logger.error(e)
         }
