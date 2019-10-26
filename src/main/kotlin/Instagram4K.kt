@@ -41,7 +41,6 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
             unfollowerPKs.filter { !whitelist.contains(it) }
                 .take(numToUnfollow)
                 .map {
-//                    apiClient.unfollowByPK(it)
                     database.getUsernameByPK(it)?.let { username ->
                         logger.info("unfollowing: $username")
                         autoremoteClient.unfollowByUsername(username)
@@ -56,10 +55,9 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
     fun followAndAddToWhitelist(username: String) {
         logger.info("whitelisting: $username")
         try {
-            val pk_to_whitelist = getInstagramUserAndSaveJsonToDB(username).pk
-//            apiClient.followByPK(pk_to_whitelist)
+            val pkToWhitelist = getInstagramUserAndSaveJsonToDB(username).pk
             autoremoteClient.followByUserName(username)
-            database.addToWhitelist(apiClient.getOurPK(), pk_to_whitelist, Database.WhitelistReason.MANUAL)
+            database.addToWhitelist(apiClient.getOurPK(), pkToWhitelist, Database.WhitelistReason.MANUAL)
         } catch (e: Exception) {
             logger.error(e)
         }
@@ -101,7 +99,6 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
 
         if(followerRatio < 0.5) {
             logger.info("unfollowing ${followinger.username}")
-//            apiClient.unfollowByPK(followinger.pk)
             autoremoteClient.unfollowByUsername(followinger.getUsername())
         }
     }
@@ -129,7 +126,6 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
 
             applyToGoodUsers(otherUsersFollowers, numberToCopy, true) {
                 logger.info("following: ${it.username}")
-//                apiClient.followByPK(it.pk)
                 autoremoteClient.followByUserName(it.username)
                 database.recordAction(apiClient.getOurPK(), it.pk, it.username, username, Database.ActionType.FOLLOW_USER_FOLLOWER)
             }
@@ -146,7 +142,6 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
 
             applyToGoodUsers(likers, numberToCopy, true) {
                 logger.info("following: ${it.username}")
-//                apiClient.followByPK(it.pk)
                 autoremoteClient.followByUserName(it.username)
                 database.recordAction(apiClient.getOurPK(), it.pk, it.username, tag, Database.ActionType.FOLLOW_TAG_LIKER)
             }
@@ -201,9 +196,6 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
             applyToGoodUsers(likers, numberToLike, false) { userSummary ->
                 logger.info("liking posts by: ${userSummary.username}")
                 autoremoteClient.like3Recent(userSummary.username)
-//                apiClient.getUserFeed(userSummary.pk).map {
-//                    apiClient.likeMedia(it.pk)
-//                }.take(3).toList()
                 database.recordAction(apiClient.getOurPK(), userSummary.pk, userSummary.username, tag, Database.ActionType.LIKE_TAG_LIKER)
             }
         } catch (e: Exception) {
