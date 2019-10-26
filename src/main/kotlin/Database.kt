@@ -1,7 +1,9 @@
 import com.google.gson.Gson
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
+import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import org.jooq.JSONB
 import org.jooq.SQLDialect
+import org.jooq.impl.DSL
 import org.jooq.impl.DSL.*
 import org.jooq.instagram4k.Tables.*
 import org.jooq.instagram4k.tables.FollowerLog
@@ -16,7 +18,7 @@ class Database {
 
     fun getDatabaseConnection() : Connection {
         val dbConfig = Properties()
-        File("dbconfig.properties").inputStream().let { dbConfig.load(it) }
+        File("config.properties").inputStream().let { dbConfig.load(it) }
         val dbUser: String = dbConfig.getProperty("db.user")
         val dbPassword: String = dbConfig.getProperty("db.password")
         val dbUrl: String = dbConfig.getProperty("db.url")
@@ -139,6 +141,35 @@ class Database {
             .set(SECRET_LOGIN_INFO.INSERT_DATE, OffsetDateTime.now())
             .execute()
     }
+
+    fun getUsernameByPK(userPK: Long): String? {
+        return create.select()
+            .from(INSTAGRAM_USER_JSON)
+            .where(INSTAGRAM_USER_JSON.USER_PK.eq(userPK))
+            .fetch()
+            .firstOrNull()
+            ?.let {
+                Gson().fromJson(it.getValue(INSTAGRAM_USER_JSON.JSON).toString(), InstagramUser::class.java).getUsername()
+            }
+    }
+
+    fun getNumFollowRequestsAndLikebacks(ourPK: Long): List<NumFollowRequestsAndLikebacks> {
+        return create.select(
+            ACTION_LOG.SOURCE,
+            count(),
+            sum(`when`(exists(create.selectOne().from(LIKER_LOG).where(LIKER_LOG.LIKER_PK.eq(ACTION_LOG.REQUESTED_PK))), 1).else_(0))
+        )
+            .from(ACTION_LOG)
+            .where(ACTION_LOG.ACTION_TYPE.eq(ActionType.FOLLOW_TAG_LIKER.typeString))
+            .and(ACTION_LOG.OUR_PK.eq(ourPK))
+            .groupBy(ACTION_LOG.SOURCE)
+            .fetch()
+            .map {
+                NumFollowRequestsAndLikebacks(it.getValue(ACTION_LOG.SOURCE), it.getValue(1, Long::class.java), it.getValue(2, Long::class.java))
+            }
+    }
+
+    data class NumFollowRequestsAndLikebacks(val tag: String, val numFollowRequests: Long, val numLikebacks: Long)
 
     data class SecretLoginInfo(val cookieStoreSerialized: ByteArray, val uuid: String) {
         override fun equals(other: Any?): Boolean {

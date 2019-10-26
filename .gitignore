@@ -3,7 +3,7 @@
 gradle/
 out
 InstaScript.kt
-dbconfig.properties
+config.properties
 build/**
 buildSrc/build/**
 instagram4k.log

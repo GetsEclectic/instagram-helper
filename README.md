@@ -56,7 +56,7 @@ instagram4K.followAndAddToWhitelist("name_of_account_you_like")
 this will:
 - start a postgres 11 docker container
 - create an instagram4k database and instagram4k_app user
-- create a local dbconfig.properties file containing the user password, this is used by the app, flyway, and jooq
+- create a local config.properties file containing the user password, this is used by the app, flyway, and jooq
 - run the flywayMigrate and generateInstagram4KJooqSchemaSource gradle tasks
 
 ## Terms and conditions

@@ -24,6 +24,8 @@ dependencies {
     compile("org.apache.logging.log4j:log4j-core:2.12.0")
     compile("org.apache.logging.log4j:log4j-api:2.12.0")
     compile("com.google.code.gson:gson:2.8.5")
+    compile("com.github.kittinunf.fuel:fuel:2.2.0")
+    compile("org.apache.commons:commons-math3:3.6.1")
 
     compile("org.postgresql:postgresql:42.2.6")
     jooqRuntime("org.postgresql:postgresql:42.2.6")
@@ -38,11 +40,11 @@ tasks.withType<KotlinCompile> {
     kotlinOptions.jvmTarget = "1.8"
 }
 
-val dbConfig = Properties()
-File("dbconfig.properties").inputStream().let { dbConfig.load(it) }
-val dbUser: String = dbConfig.getProperty("db.user")
-val dbPassword: String = dbConfig.getProperty("db.password")
-val dbUrl: String = dbConfig.getProperty("db.url")
+val config = Properties()
+File("config.properties").inputStream().let { config.load(it) }
+val dbUser: String = config.getProperty("db.user")
+val dbPassword: String = config.getProperty("db.password")
+val dbUrl: String = config.getProperty("db.url")
 
 flyway {
     url = dbUrl

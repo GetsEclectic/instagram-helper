@@ -1,3 +1,4 @@
+import org.apache.commons.math3.distribution.BetaDistribution
 import org.apache.logging.log4j.LogManager
 import org.brunocvcunha.instagram4j.requests.payload.InstagramFeedItem
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
@@ -6,7 +7,7 @@ import java.io.Closeable
 import java.lang.Exception
 import java.util.regex.Pattern
 
-class Instagram4K(val apiClient: ApiClient, private val database: Database = Database()): Closeable {
+class Instagram4K(val apiClient: ApiClient, val database: Database = Database()): Closeable {
     override fun close() {
         apiClient.close()
     }
@@ -14,6 +15,7 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
     constructor(instaName: String, instaPW: String) : this(ApiClient(instaName, instaPW))
 
     val logger = LogManager.getLogger(javaClass)
+    val autoremoteClient = AutoremoteClient(apiClient.getOurUsername())
 
     init {
         logger.info("logged in as ${apiClient.getOurUsername()}")
@@ -39,8 +41,11 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
             unfollowerPKs.filter { !whitelist.contains(it) }
                 .take(numToUnfollow)
                 .map {
-                    logger.info("unfollowing: $it")
-                    apiClient.unfollowByPK(it)
+//                    apiClient.unfollowByPK(it)
+                    database.getUsernameByPK(it)?.let { username ->
+                        logger.info("unfollowing: $username")
+                        autoremoteClient.unfollowByUsername(username)
+                    }
                 }
         } catch (e: Exception) {
             logger.error(e)
@@ -52,7 +57,8 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
         logger.info("whitelisting: $username")
         try {
             val pk_to_whitelist = getInstagramUserAndSaveJsonToDB(username).pk
-            apiClient.followByPK(pk_to_whitelist)
+//            apiClient.followByPK(pk_to_whitelist)
+            autoremoteClient.followByUserName(username)
             database.addToWhitelist(apiClient.getOurPK(), pk_to_whitelist, Database.WhitelistReason.MANUAL)
         } catch (e: Exception) {
             logger.error(e)
@@ -95,7 +101,8 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
 
         if(followerRatio < 0.5) {
             logger.info("unfollowing ${followinger.username}")
-            apiClient.unfollowByPK(followinger.pk)
+//            apiClient.unfollowByPK(followinger.pk)
+            autoremoteClient.unfollowByUsername(followinger.getUsername())
         }
     }
 
@@ -122,7 +129,8 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
 
             applyToGoodUsers(otherUsersFollowers, numberToCopy, true) {
                 logger.info("following: ${it.username}")
-                apiClient.followByPK(it.pk)
+//                apiClient.followByPK(it.pk)
+                autoremoteClient.followByUserName(it.username)
                 database.recordAction(apiClient.getOurPK(), it.pk, it.username, username, Database.ActionType.FOLLOW_USER_FOLLOWER)
             }
         } catch (e: Exception) {
@@ -138,13 +146,51 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
 
             applyToGoodUsers(likers, numberToCopy, true) {
                 logger.info("following: ${it.username}")
-                apiClient.followByPK(it.pk)
+//                apiClient.followByPK(it.pk)
+                autoremoteClient.followByUserName(it.username)
                 database.recordAction(apiClient.getOurPK(), it.pk, it.username, tag, Database.ActionType.FOLLOW_TAG_LIKER)
             }
         } catch (e: Exception) {
             logger.error(e)
         }
     }
+
+    fun getBetaDistributions(): List<TagAndBetaDistribution> {
+        val numFollowRequestsAndLikebacks = database.getNumFollowRequestsAndLikebacks(apiClient.getOurPK())
+        val setOfRecentTagsFromUserFeed = getSetOfRecentTagsFromUserFeed()
+
+        val tagsNotExploredYet = setOfRecentTagsFromUserFeed.minus(numFollowRequestsAndLikebacks.map { it.tag })
+        return numFollowRequestsAndLikebacks.map {
+            TagAndBetaDistribution(it.tag, BetaDistribution(it.numLikebacks.toDouble(), (it.numFollowRequests - it.numLikebacks).toDouble()))
+        }.plus(
+            tagsNotExploredYet.map {
+                TagAndBetaDistribution(it, BetaDistribution(1.0, 1.0))
+            }
+        )
+    }
+
+    fun getTagsToFollowLikersFromUsingThompsonSampling(numActionsToGet: Int): Map<String, Int> {
+        val betaDistributions = getBetaDistributions()
+        val listOfWinners = (1..numActionsToGet).map { sampleAndReturnWinnerFromBetaDistributions(betaDistributions) }
+        return listOfWinners.groupingBy { it }.eachCount()
+    }
+
+    fun sampleAndReturnWinnerFromBetaDistributions(betaDistributions: List<TagAndBetaDistribution>): String {
+        return betaDistributions.map {
+            Pair(it.tag, it.betaDistribution.sample())
+        }.maxBy {
+            it.second
+        }!!.first
+    }
+
+    fun applyThompsonSamplingToExploreTagsToFollowFrom(numberToFollow: Int = 200) {
+        val tagsAndFollowCounts = getTagsToFollowLikersFromUsingThompsonSampling(numberToFollow)
+        tagsAndFollowCounts.map {
+            followLikersOfTopPostsForTag(it.key, it.value)
+        }
+    }
+
+    data class TagAndBetaDistribution(val tag: String, val betaDistribution: BetaDistribution)
 
     fun likeLikersOfTopPostsForTag(tag: String, numberToLike: Int = 50) {
         logger.info("liking likers of $tag")
@@ -154,9 +200,10 @@ class Instagram4K(val apiClient: ApiClient, private val database: Database = Dat
 
             applyToGoodUsers(likers, numberToLike, false) { userSummary ->
                 logger.info("liking posts by: ${userSummary.username}")
-                apiClient.getUserFeed(userSummary.pk).map {
-                    apiClient.likeMedia(it.pk)
-                }.take(3).toList()
+                autoremoteClient.like3Recent(userSummary.username)
+//                apiClient.getUserFeed(userSummary.pk).map {
+//                    apiClient.likeMedia(it.pk)
+//                }.take(3).toList()
                 database.recordAction(apiClient.getOurPK(), userSummary.pk, userSummary.username, tag, Database.ActionType.LIKE_TAG_LIKER)
             }
         } catch (e: Exception) {

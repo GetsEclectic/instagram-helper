@@ -18,7 +18,7 @@ docker run --name instagram4k_db -e POSTGRES_PASSWORD="$ADMIN_PW" -d -p "$HOST_P
 
 rm postgressetup.sql
 
-cat > dbconfig.properties <<EOF
+cat > config.properties <<EOF
 db.user=instagram4k_app
 db.password=$USER_PW
 db.url=jdbc:postgresql://localhost:$HOST_PORT/instagram4k
