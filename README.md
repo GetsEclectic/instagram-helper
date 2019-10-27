@@ -6,46 +6,32 @@ kotlin instagram library using [instagram4j](https://github.com/brunocvcunha/ins
 
 ## Example usage
 
-#### login
-
 ```kotlin
-val instagram4K = Instagram4K("username", "password")
-```
+Instagram4K("instagram username", "instagram password").use { instagram4k ->
+        // unfollow users that aren't following you back
+        instagram4k.unfollowUnfollowers(100)
+        
+        // follow users likely to like your posts
+        // it will follow users that have liked the top posts for the tags it is exploring
+        // it uses thompson sampling to explore/exploit the tags you've used in recent posts on your account
+        instagram4k.applyThompsonSamplingToExploreTagsToFollowFrom(100)
 
-#### see how many people you're following that aren't following you back
+        // similar to the previous function
+        // it likes the three most recent posts for accounts that have liked the top posts for the tags it is exploring
+        instagram4k.applyThompsonSamplingToExploreTagsToLikeFrom(100)
 
-```kotlin
-println(instagram4K.getUnfollowerPKs().size)
-```
+        // unfollows users that are following you and follow many more people than are following them
+        // should be likely to continue following you
+        instagram4k.pruneMutualFollowers(100)
 
-#### unfollow those ingrates
+        // record to the database all the accounts that have liked your recent posts
+        // this data is necessary for thompson sampling
+        instagram4k.recordLikers()
 
-```kotlin
-instagram4K.unfollowUnfollowers()
-```
-
-#### unfollow people that are following you but probably won't unfollow you if you unfollow them
-
-```kotlin
-instagram4K.pruneMutualFollowers()
-```
-
-#### follow some people that liked one of the top posts for a tag and will probably follow you back and like your posts
-
-```kotlin
-instagram4K.followLikersOfTopPostsForTag("a_relevant_tag")
-```
-
-#### follow some people that are following a similar account and will probably follow you back
-
-```kotlin
-instagram4K.copyFollowers("name_of_a_similar_account")
-```
-
-#### follow a user and add them to the whitelist so they are never automatically unfollowed
-
-```kotlin
-instagram4K.followAndAddToWhitelist("name_of_account_you_like")
+        // record to the database all of the accounts that have followed or unfollowed you since the last time it was run
+        // this data is not used by this application yet, but it can be interesting to look at
+        instagram4k.recordFollowers()
+}
 ```
 
 ## Set up
@@ -53,17 +39,13 @@ instagram4K.followAndAddToWhitelist("name_of_account_you_like")
 ./setUpDb.sh
 ```
 
-this will:
+This will:
 - start a postgres 11 docker container
 - create an instagram4k database and instagram4k_app user
 - create a local config.properties file containing the user password, this is used by the app, flyway, and jooq
 - run the flywayMigrate and generateInstagram4KJooqSchemaSource gradle tasks
 
-## Terms and conditions
-
-- You will NOT use this library for marketing purposes (spam, botting, harassment, massive bulk messaging...).
-- We do NOT give support to anyone who wants to use this library to send spam or commit other crimes.
-- We reserve the right to block any user of this repository that does not meet these conditions.
+You will need to set up tasker, autoremote, and autoinput separately, and put your autoremote url into config.properties.
 
 ### Legal
 
