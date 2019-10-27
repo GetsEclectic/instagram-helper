@@ -150,13 +150,13 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
         }
     }
 
-    fun getBetaDistributions(): List<TagAndBetaDistribution> {
-        val numFollowRequestsAndLikebacks = database.getNumFollowRequestsAndLikebacks(apiClient.getOurPK())
+    fun getBetaDistributions(actionType: Database.ActionType): List<TagAndBetaDistribution> {
+        val numFollowRequestsAndLikebacks = database.getNumActionsAndLikebacks(apiClient.getOurPK(), actionType)
         val setOfRecentTagsFromUserFeed = getSetOfRecentTagsFromUserFeed()
 
         val tagsNotExploredYet = setOfRecentTagsFromUserFeed.minus(numFollowRequestsAndLikebacks.map { it.tag })
         return numFollowRequestsAndLikebacks.map {
-            TagAndBetaDistribution(it.tag, BetaDistribution(it.numLikebacks.toDouble(), (it.numFollowRequests - it.numLikebacks).toDouble()))
+            TagAndBetaDistribution(it.tag, BetaDistribution(it.numLikebacks.toDouble() + 1, (it.numActions - it.numLikebacks).toDouble() + 1))
         }.plus(
             tagsNotExploredYet.map {
                 TagAndBetaDistribution(it, BetaDistribution(1.0, 1.0))
@@ -164,13 +164,13 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
         )
     }
 
-    fun getTagsToFollowLikersFromUsingThompsonSampling(numActionsToGet: Int): Map<String, Int> {
-        val betaDistributions = getBetaDistributions()
-        val listOfWinners = (1..numActionsToGet).map { sampleAndReturnWinnerFromBetaDistributions(betaDistributions) }
+    fun getTagsAndActionCountsUsingThompsonSampling(numActionsToGet: Int, actionType: Database.ActionType): Map<String, Int> {
+        val betaDistributions = getBetaDistributions(actionType)
+        val listOfWinners = (1..numActionsToGet).map { getArgMaxFromBetaDistributions(betaDistributions) }
         return listOfWinners.groupingBy { it }.eachCount()
     }
 
-    fun sampleAndReturnWinnerFromBetaDistributions(betaDistributions: List<TagAndBetaDistribution>): String {
+    fun getArgMaxFromBetaDistributions(betaDistributions: List<TagAndBetaDistribution>): String {
         return betaDistributions.map {
             Pair(it.tag, it.betaDistribution.sample())
         }.maxBy {
@@ -179,9 +179,20 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
     }
 
     fun applyThompsonSamplingToExploreTagsToFollowFrom(numberToFollow: Int = 200) {
-        val tagsAndFollowCounts = getTagsToFollowLikersFromUsingThompsonSampling(numberToFollow)
+        logger.info("applying thompson sampling for followers")
+        val tagsAndFollowCounts = getTagsAndActionCountsUsingThompsonSampling(numberToFollow, Database.ActionType.FOLLOW_TAG_LIKER)
+        logger.info("tags and follow counts: $tagsAndFollowCounts")
         tagsAndFollowCounts.map {
             followLikersOfTopPostsForTag(it.key, it.value)
+        }
+    }
+
+    fun applyThompsonSamplingToExploreTagsToLikeFrom(numberToLike: Int = 200) {
+        logger.info("applying thompson sampling for likers")
+        val tagsAndFollowCounts = getTagsAndActionCountsUsingThompsonSampling(numberToLike, Database.ActionType.LIKE_TAG_LIKER)
+        logger.info("tags and follow counts: $tagsAndFollowCounts")
+        tagsAndFollowCounts.map {
+            likeLikersOfTopPostsForTag(it.key, it.value)
         }
     }
 

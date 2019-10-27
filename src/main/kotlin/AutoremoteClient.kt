@@ -1,9 +1,8 @@
-import com.fasterxml.jackson.databind.annotation.JsonAppend
 import com.github.kittinunf.fuel.Fuel
 import java.io.File
 import java.util.*
 
-class AutoremoteClient(private val ourUsername: String) {
+class AutoremoteClient(ourUsername: String) {
     private val autoremoteBaseURL: String
 
     init {
@@ -26,7 +25,7 @@ class AutoremoteClient(private val ourUsername: String) {
         Thread.sleep(7000)
     }
 
-    fun switchProfile(userName: String) {
+    private fun switchProfile(userName: String) {
         val autoremoteUnfollowByUsernameURL = "$autoremoteBaseURL&message=SwitchProfile=:=$userName"
         Fuel.get(autoremoteUnfollowByUsernameURL).responseString()
         Thread.sleep(12000)
@@ -35,6 +34,6 @@ class AutoremoteClient(private val ourUsername: String) {
     fun like3Recent(userName: String) {
         val autoremoteUnfollowByUsernameURL = "$autoremoteBaseURL&message=Like3Recent=:=$userName"
         Fuel.get(autoremoteUnfollowByUsernameURL).responseString()
-        Thread.sleep(10000)
+        Thread.sleep(12000)
     }
 }
