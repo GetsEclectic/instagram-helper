@@ -180,7 +180,7 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
 
     fun applyThompsonSamplingToExploreTagsToFollowFrom(numberToFollow: Int = 200) {
         logger.info("applying thompson sampling for followers")
-        val tagsAndFollowCounts = getTagsAndActionCountsUsingThompsonSampling(numberToFollow, Database.ActionType.FOLLOW_TAG_LIKER)
+        val tagsAndFollowCounts = getTagsAndActionCountsUsingThompsonSampling(numberToFollow, Database.ActionType.FOLLOW_TAG_LIKER).toList().sortedByDescending { (_, value) -> value }.toMap()
         logger.info("tags and follow counts: $tagsAndFollowCounts")
         tagsAndFollowCounts.map {
             followLikersOfTopPostsForTag(it.key, it.value)
@@ -189,7 +189,7 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
 
     fun applyThompsonSamplingToExploreTagsToLikeFrom(numberToLike: Int = 200) {
         logger.info("applying thompson sampling for likers")
-        val tagsAndFollowCounts = getTagsAndActionCountsUsingThompsonSampling(numberToLike, Database.ActionType.LIKE_TAG_LIKER)
+        val tagsAndFollowCounts = getTagsAndActionCountsUsingThompsonSampling(numberToLike, Database.ActionType.LIKE_TAG_LIKER).toList().sortedByDescending { (_, value) -> value }.toMap()
         logger.info("tags and follow counts: $tagsAndFollowCounts")
         tagsAndFollowCounts.map {
             likeLikersOfTopPostsForTag(it.key, it.value)
@@ -273,13 +273,13 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
         }
     }
 
-    // this only looks at the caption
-    // to make it work for tags in comments we would need to scan a number of comments, not sure what order they are returned in, might have to scan a lot...
     fun getSetOfRecentTagsFromUserFeed(userPK: Long = apiClient.getOurPK()): Set<String> {
         val userFeed = apiClient.getUserFeed(userPK).toList()
         return getTagsFromCaptionsInFeedItemList(userFeed).toSet()
     }
 
+    // this only looks at the caption
+    // to make it work for tags in comments we would need to scan a number of comments, not sure what order they are returned in, might have to scan a lot...
     private fun getTagsFromCaptionsInFeedItemList(instagramFeedItems: List<InstagramFeedItem>): List<String> {
         val tagList: MutableList<String> = mutableListOf()
         instagramFeedItems.map {
@@ -330,5 +330,20 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
         return frequencyAndMediaCountMap
     }
 
+    fun getTagInformation(tag: String): TagInformation {
+        val topPosts = apiClient.getTopPostsByTag(tag).take(9).toList()
+        topPosts.map { println(it.user.username) }
+        val medianLikes = median(topPosts.map { it.like_count })
+        val medianComments = median(topPosts.map { it.comment_count })
+        return TagInformation(medianLikes, medianComments)
+    }
+
+    private fun median(numbers: List<Int>): Float {
+        return numbers.sorted()
+            .map { it.toFloat() }
+            .let { (it[it.size / 2] + it[(it.size - 1) / 2]) / 2 }
+    }
+
+    data class TagInformation(val medianLikes: Float, val medianComments: Float)
     data class TagInfo(val frequency: Int, val mediaCount: Int)
 }

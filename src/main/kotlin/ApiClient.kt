@@ -9,11 +9,8 @@ import java.io.*
 import java.lang.Exception
 import java.net.SocketException
 import java.net.SocketTimeoutException
-import java.nio.charset.Charset
-import java.nio.charset.StandardCharsets
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.util.*
 import javax.net.ssl.SSLProtocolException
 import kotlin.collections.HashSet
 
@@ -185,6 +182,18 @@ class ApiClient(instaName: String, instaPW: String): Closeable {
 
     fun likeMedia(mediaId: Long): StatusResult {
         return sendRequestWithRetry(InstagramLikeRequest(mediaId))
+    }
+
+    fun getCommentsForMedia(mediaId: Long): Sequence<InstagramComment> {
+        return sequence {
+            var nextMaxId: String? = null
+
+            do {
+                val commentsResult = sendRequestWithRetry(InstagramGetMediaCommentsRequest(mediaId.toString(), nextMaxId))
+                yieldAll(commentsResult.comments)
+                nextMaxId = commentsResult.next_max_id
+            } while (nextMaxId != null)
+        }
     }
 
 //    fun getOurTimeline(): Sequence<InstagramFeedItem> {
