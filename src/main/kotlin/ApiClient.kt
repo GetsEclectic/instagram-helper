@@ -1,3 +1,4 @@
+import com.google.gson.Gson
 import org.apache.http.client.CookieStore
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.impl.client.HttpClientBuilder
@@ -183,18 +184,21 @@ class ApiClient(instaName: String, instaPW: String): Closeable {
     fun likeMedia(mediaId: Long): StatusResult {
         return sendRequestWithRetry(InstagramLikeRequest(mediaId))
     }
-
+    // iterating doesn't work properly, always returns the same thing
     fun getCommentsForMedia(mediaId: Long): Sequence<InstagramComment> {
         return sequence {
             var nextMaxId: String? = null
 
             do {
                 val commentsResult = sendRequestWithRetry(InstagramGetMediaCommentsRequest(mediaId.toString(), nextMaxId))
-                yieldAll(commentsResult.comments)
-                nextMaxId = commentsResult.next_max_id
+                yieldAll(commentsResult.comments.reversed())
+                nextMaxId = Gson().fromJson(commentsResult.next_max_id, InstagramGetMediaCommentsResultNextMaxId::class.java).server_cursor
+                println("nextMaxId: $nextMaxId")
             } while (nextMaxId != null)
         }
     }
+
+    data class InstagramGetMediaCommentsResultNextMaxId(val server_cursor: String)
 
 //    fun getOurTimeline(): Sequence<InstagramFeedItem> {
 //        return sequence {

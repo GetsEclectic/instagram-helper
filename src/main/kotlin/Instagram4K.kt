@@ -284,17 +284,24 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
         val tagList: MutableList<String> = mutableListOf()
         instagramFeedItems.map {
             it.caption?.text?.let { captionText ->
-                val validTagCharacters = "a-zA-Z_0-9#"
-                val words = captionText.split(Pattern.compile("[^$validTagCharacters]"))
-
-                words.map { word ->
-                    if(word.startsWith("#") && word.length > 1) {
-                        tagList += word.drop(1)
-                    }
-                }
+                tagList += getTagsFromString(captionText)
             }
         }
         return tagList
+    }
+
+    private fun getTagsFromString(string: String): List<String> {
+        val tags: MutableList<String> = mutableListOf()
+        val validTagCharacters = "a-zA-Z_0-9#"
+        val words = string.split(Pattern.compile("[^$validTagCharacters]"))
+
+        words.map { word ->
+            if(word.startsWith("#") && word.length > 1) {
+                tags += word.drop(1)
+            }
+        }
+
+        return tags
     }
 
     // gets the recent tags for a user
