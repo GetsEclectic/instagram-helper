@@ -332,14 +332,14 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
             val tag = it.first
             val frequency = it.second
             val mediaCount = apiClient.getMediaCountForTag(tag)
-            frequencyAndMediaCountMap.put(tag, TagInfo(frequency, mediaCount))
+            val tagInformation = getTagInformation(tag)
+            frequencyAndMediaCountMap.put(tag, TagInfo(frequency, mediaCount, tagInformation))
         }
         return frequencyAndMediaCountMap
     }
 
     fun getTagInformation(tag: String): TagInformation {
         val topPosts = apiClient.getTopPostsByTag(tag).take(9).toList()
-        topPosts.map { println(it.user.username) }
         val medianLikes = median(topPosts.map { it.like_count })
         val medianComments = median(topPosts.map { it.comment_count })
         return TagInformation(medianLikes, medianComments)
@@ -352,5 +352,5 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
     }
 
     data class TagInformation(val medianLikes: Float, val medianComments: Float)
-    data class TagInfo(val frequency: Int, val mediaCount: Int)
+    data class TagInfo(val frequency: Int, val mediaCount: Int, val tagInformation: TagInformation)
 }
