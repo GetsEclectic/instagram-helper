@@ -10,6 +10,7 @@ import java.util.regex.Pattern
 class Instagram4K(val apiClient: ApiClient, val database: Database = Database()): Closeable {
     override fun close() {
         apiClient.close()
+        autoremoteClient.close()
     }
 
     constructor(instaName: String, instaPW: String) : this(ApiClient(instaName, instaPW))

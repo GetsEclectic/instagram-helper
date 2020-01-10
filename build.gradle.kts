@@ -19,6 +19,7 @@ repositories {
 
 dependencies {
     compile(kotlin("stdlib-jdk8"))
+    compile("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.3")
     compile("org.brunocvcunha.instagram4j:instagram4j:1.12")
     compile("javax.annotation:javax.annotation-api:1.3.2")
     compile("org.apache.logging.log4j:log4j-core:2.12.0")
