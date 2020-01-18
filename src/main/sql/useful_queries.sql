@@ -73,3 +73,62 @@ group by
 order by
 	fr.source_type,
 	date_trunc('day', fr.insert_date);
+
+-- export for ml test:
+--   all the actions since 10-27-2019
+--   did the requested user like one of our posts
+--   did the requested user follow us
+--   did the requested user like two or more of our posts, at least 18 hours apart, indicates engagement
+--   the json describing the user, as returned by ApiClient.getInstagramUser
+--   our pk
+select
+	al_earliest.*,
+	case
+		when exists (
+		select
+			1
+		from
+			liker_log ll
+		where
+			ll.liker_pk = al_earliest.requested_pk) then 1
+		else 0
+	end liked,
+	case
+		when exists (
+		select
+			1
+		from
+			follower_log fl
+		where
+			fl.follower_pk = al_earliest.requested_pk
+			and fl."action" = 'followed') then 1
+		else 0
+	end followed_back,
+	case
+		when exists (
+		select
+			1
+		from
+			liker_log ll
+		join liker_log ll_later on
+			ll_later.liker_pk = ll.liker_pk
+			and ll_later.insert_date > ll.insert_date + interval '18 hours'
+		where
+			ll.liker_pk = al_earliest.requested_pk) then 1
+		else 0
+	end engaged,
+	iuj."json"
+from
+	action_log al_earliest
+join instagram_user_json iuj on
+	iuj.user_pk = al_earliest.requested_pk
+where
+	al_earliest.insert_date > date '2019-10-27'
+	and not exists (
+	select
+		1
+	from
+		action_log al_earlier
+	where
+		al_earlier.requested_pk = al_earliest.requested_pk
+		and al_earlier.id < al_earliest.id);
