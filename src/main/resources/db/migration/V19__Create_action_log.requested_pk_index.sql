@@ -1,0 +1,1 @@
+create index on action_log(requested_pk);

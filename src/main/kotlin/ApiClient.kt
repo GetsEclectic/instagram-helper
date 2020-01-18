@@ -79,7 +79,7 @@ class ApiClient(instaName: String, instaPW: String): Closeable {
     private fun <T: StatusResult> sendRequestWithRetry(request: InstagramRequest<T>): T {
         var instagram4JResult: Instagram4JResult<T>
 
-        Thread.sleep((500 + (0..1000).random()).toLong())
+        Thread.sleep((750 + (0..500).random()).toLong())
 
         do {
             instagram4JResult = sendRequestWithCatchNetworkExceptions(request)

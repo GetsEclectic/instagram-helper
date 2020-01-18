@@ -1,0 +1,1 @@
+create index on liker_log(liker_pk);
