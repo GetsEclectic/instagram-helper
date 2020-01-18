@@ -5,6 +5,10 @@ import numpy as np
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import KFold
+import re
+
+
+non_word_pattern = re.compile(r'\W+')
 
 
 def read_large_csv(filename):
@@ -14,6 +18,13 @@ def read_large_csv(filename):
         large_pd = large_pd.append(dataframe_chunk)
 
     return large_pd
+
+
+def remove_non_word_characters_and_nan_to_empty_string(string):
+    if isinstance(string, str):
+        return non_word_pattern.sub('', string)
+    else:
+        return ''
 
 
 def train_model_on_instagram4k_data():
@@ -28,19 +39,30 @@ def train_model_on_instagram4k_data():
     data = pd.concat([data, deserialized_json_series], axis=1)
 
     # integer encode categorical features
-    action_label_encoder = preprocessing.LabelEncoder()
-    data.action_type = action_label_encoder.fit_transform(data.action_type)
+    columns_to_integer_encode = ['action_type', 'source']
+    for column in columns_to_integer_encode:
+        le = preprocessing.LabelEncoder()
+        data[column] = le.fit_transform(data[column])
 
-    source_label_encoder = preprocessing.LabelEncoder()
-    data.source = source_label_encoder.fit_transform(data.source)
+    # derive some features
+    data['has_zip'] = data.zip.apply(lambda x: x == "")
 
-    features = [f for f in data.columns if f not in ['id', 'requested_username', 'insert_date', 'liked','followed_back', 'engaged', 'profile_pic_url', 'hd_profile_pic_url_info', 'hd_profile_pic_versions', 'username', 'biography', 'full_name', 'external_url', 'profile_pic_id', 'external_lynx_url', 'zip', 'category', 'city_name', 'public_email', 'address_street', 'direct_messaging', 'public_phone_number', 'business_contact_method', 'public_phone_country_code']]
+    # remove non numeric and non boolean features
+    valid_features = [f for f in data.columns if f not in
+                ['id', 'requested_username', 'insert_date', 'liked','followed_back','engaged', 'profile_pic_url',
+                 'hd_profile_pic_url_info', 'hd_profile_pic_versions', 'username', 'biography', 'full_name',
+                 'external_url', 'profile_pic_id', 'external_lynx_url', 'zip', 'category', 'city_name', 'public_email',
+                 'address_street', 'direct_messaging', 'public_phone_number', 'business_contact_method',
+                 'public_phone_country_code']]
+
+    # print(data.direct_messaging.value_counts())
+    # quit()
 
     # scale_pos_weight = num negative / num positive
     value_counts = data.engaged.value_counts()
     scale_pos_weight = value_counts[0] / value_counts[1]
 
-    dtrain = lgb.Dataset(data=data[features],
+    dtrain = lgb.Dataset(data=data[valid_features],
                          label=target, free_raw_data=False)
 
     dtrain.construct()
