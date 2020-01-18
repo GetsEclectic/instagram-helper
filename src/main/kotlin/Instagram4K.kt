@@ -152,15 +152,21 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
     }
 
     fun getBetaDistributions(actionType: Database.ActionType): List<TagAndBetaDistribution> {
+        // default beta distribution parameters, representing our initial belief about the distribution of like back rates
+        // centered around 0.07, very likely less than 0.3
+        // on initial implementation these were both defaulted to 1, which resulted in overexploration of new tags
+        val priorAlpha = 3.0
+        val priorBeta = 25.0
+
         val numFollowRequestsAndLikebacks = database.getNumActionsAndLikebacks(apiClient.getOurPK(), actionType)
         val setOfRecentTagsFromUserFeed = getSetOfRecentTagsFromUserFeed()
 
         val tagsNotExploredYet = setOfRecentTagsFromUserFeed.minus(numFollowRequestsAndLikebacks.map { it.tag })
         return numFollowRequestsAndLikebacks.map {
-            TagAndBetaDistribution(it.tag, BetaDistribution(it.numLikebacks.toDouble() + 1, (it.numActions - it.numLikebacks).toDouble() + 1))
+            TagAndBetaDistribution(it.tag, BetaDistribution(it.numLikebacks+ priorAlpha, (it.numActions - it.numLikebacks) + priorBeta))
         }.plus(
             tagsNotExploredYet.map {
-                TagAndBetaDistribution(it, BetaDistribution(1.0, 1.0))
+                TagAndBetaDistribution(it, BetaDistribution(priorAlpha, priorBeta))
             }
         )
     }
