@@ -304,7 +304,7 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
 
         words.map { word ->
             if(word.startsWith("#") && word.length > 1) {
-                tags += word.drop(1)
+                tags += word.replace("#", "")
             }
         }
 
