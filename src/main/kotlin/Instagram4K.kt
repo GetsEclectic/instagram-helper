@@ -185,6 +185,19 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
         }!!.first
     }
 
+    fun storeUserJsonToDbToSendToModel() {
+        val tagsAndFollowCounts = getTagsAndActionCountsUsingThompsonSampling(2000, Database.ActionType.FOLLOW_TAG_LIKER).toList().sortedByDescending { (_, value) -> value }.toMap()
+
+        tagsAndFollowCounts.map { tagAndFollowCount ->
+            val topPosts = apiClient.getTopPostsByTag(tagAndFollowCount.key)
+            val likers = topPosts.flatMap { apiClient.getLikersByMediaId(it.pk).asSequence() }
+
+            applyToGoodUsers(likers, tagAndFollowCount.value, true) {
+                print("${it.pk},${tagAndFollowCount.key}\n")
+            }
+        }
+    }
+
     fun applyThompsonSamplingToExploreTagsToFollowFrom(numberToFollow: Int = 200) {
         logger.info("applying thompson sampling for followers")
         val tagsAndFollowCounts = getTagsAndActionCountsUsingThompsonSampling(numberToFollow, Database.ActionType.FOLLOW_TAG_LIKER).toList().sortedByDescending { (_, value) -> value }.toMap()
@@ -250,11 +263,21 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
         logger.info("recording likers")
         try {
             val feed = apiClient.getUserFeed()
-            val mediaIDToLikersMap = feed.associateBy({ it.pk }, { apiClient.getLikersByMediaId(it.pk) })
-            mediaIDToLikersMap.map {
-                val mediaID = it.key
+
+            val mediaIDToLikersMap = feed.associateBy({ it.pk }, {
+                try {
+                    apiClient.getLikersByMediaId(it.pk)
+                } catch (e: Exception) {
+                    logger.error(e)
+                    listOf<InstagramUserSummary>()
+                }
+
+            })
+
+            mediaIDToLikersMap.map { mediaIDToLikers ->
+                val mediaID = mediaIDToLikers.key
                 val ourPK = apiClient.getOurPK()
-                val likerPKs = it.value.map { it.pk }
+                val likerPKs = mediaIDToLikers.value.map { it.pk }
                 val existingLikerPKs = database.getLikersForPost(ourPK, mediaID)
                 val newLikerPKs = likerPKs.minus(existingLikerPKs)
                 database.addToLikerLog(ourPK, mediaID, newLikerPKs)
