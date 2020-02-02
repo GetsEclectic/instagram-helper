@@ -195,6 +195,10 @@ class Database {
 
     fun getUnscoredUserInfo(ourPK: Long): List<List<Any>> {
         logger.debug("getting unscored user info")
+
+        val selectScoredUsers = select(USER_SCORES.USER_PK)
+            .from(USER_SCORES)
+
         return create.select(
             USERS_TO_SCORE.OUR_PK,
             USERS_TO_SCORE.SCANNED_PK,
@@ -203,6 +207,7 @@ class Database {
         ).from(USERS_TO_SCORE)
             .join(INSTAGRAM_USER_JSON)
             .on(USERS_TO_SCORE.SCANNED_PK.eq(INSTAGRAM_USER_JSON.USER_PK))
+            .where(USERS_TO_SCORE.SCANNED_PK.notIn(selectScoredUsers))
             .fetch()
             .map { listOf(it.getValue(USERS_TO_SCORE.OUR_PK), it.getValue( USERS_TO_SCORE.SCANNED_PK), it.getValue(USERS_TO_SCORE.SOURCE), it.getValue(INSTAGRAM_USER_JSON.JSON).toString()) }
     }

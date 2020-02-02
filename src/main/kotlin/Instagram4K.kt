@@ -223,9 +223,11 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
         val unscoredUserInfo = database.getUnscoredUserInfo(apiClient.getOurPK()).map { it.plus(Database.ActionType.FOLLOW_TAG_LIKER) }
         val filenameToWrite = "src/main/resources/users_to_score-" + LocalDateTime.now() + ".csv"
 
-        csvWriter().open(filenameToWrite) {
-            writeRow(listOf("our_pk","requested_pk","source","json","action_type"))
-            writeAll(unscoredUserInfo)
+        if(unscoredUserInfo.isNotEmpty()) {
+            csvWriter().open(filenameToWrite) {
+                writeRow(listOf("our_pk","requested_pk","source","json","action_type"))
+                writeAll(unscoredUserInfo)
+            }
         }
     }
 
