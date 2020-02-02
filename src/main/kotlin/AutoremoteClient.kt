@@ -11,10 +11,17 @@ class AutoremoteClient(ourUsername: String) {
     private val autoremoteBaseURL: String
     private val actionChannel = Channel<AutoremoteAction>()
     private var keepRunning = true
+    private var haveExecutedSwitch = false
 
     private val deferred = GlobalScope.async {
         while(keepRunning || !actionChannel.isEmpty ) {
             if(!actionChannel.isEmpty) {
+                // if we haven't switched profiles yet, and there is an action to perform, do a switch first to make sure we're on the correct profile
+                if(!haveExecutedSwitch) {
+                    switchProfile(ourUsername)
+                    haveExecutedSwitch = true
+                }
+
                 val autoremoteAction = actionChannel.receive()
                 when(autoremoteAction.autoremoteActionType) {
                     AutoremoteActionType.FOLLOW -> processFollowAction(autoremoteAction)
@@ -30,8 +37,6 @@ class AutoremoteClient(ourUsername: String) {
         val config = Properties()
         File("config.properties").inputStream().let { config.load(it) }
         autoremoteBaseURL = config.getProperty("autoremote.baseurl")
-
-        switchProfile(ourUsername)
     }
 
     data class AutoremoteAction(val autoremoteActionType: AutoremoteActionType, val userName: String)

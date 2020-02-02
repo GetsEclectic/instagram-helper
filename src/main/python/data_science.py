@@ -29,8 +29,15 @@ def remove_non_word_characters_and_nan_to_empty_string(string):
         return ''
 
 
-def load_and_preprocess_instagram4k_data():
-    data = read_large_csv("../resources/instagram4k_export.csv")
+labelEncoders = {}
+
+
+# is_training data is true if we're training, false if we're inferring on previously unseen data
+def load_and_preprocess_instagram4k_data(is_training_data):
+    if is_training_data:
+        data = read_large_csv("../resources/instagram4k_export.csv")
+    else:
+        data = read_large_csv("../resources/users_to_score-2020-02-02T10:08:23.584300.csv")
 
     # turn json into dataframe columns
     deserialized_json_series = pd.DataFrame.from_records(data.json.apply(json.loads))
@@ -38,19 +45,22 @@ def load_and_preprocess_instagram4k_data():
     data = pd.concat([data, deserialized_json_series], axis=1)
 
     # filter out days with especially low like rates, indicates something went wrong with the phone/tasker
-    data['day_trunc'] = data['insert_date'].apply(lambda x: datetime.strptime(x.split(" ")[0], '%Y-%m-%d'))
-    like_rates_by_day = data.groupby('day_trunc')['liked'].mean()
-    invalid_days = like_rates_by_day[like_rates_by_day < 0.04]
-    data.drop(data[data['day_trunc'].isin(invalid_days.index)].index, inplace=True)
+    if is_training_data:
+        data['day_trunc'] = data['insert_date'].apply(lambda x: datetime.strptime(x.split(" ")[0], '%Y-%m-%d'))
+        like_rates_by_day = data.groupby('day_trunc')['liked'].mean()
+        invalid_days = like_rates_by_day[like_rates_by_day < 0.035]
+        data.drop(data[data['day_trunc'].isin(invalid_days.index)].index, inplace=True)
 
-    # values to predict
-    target = data.engaged
+        # values to predict
+        target = data.engaged
 
     # integer encode categorical features
     columns_to_integer_encode = ['action_type', 'source']
     for column in columns_to_integer_encode:
-        le = preprocessing.LabelEncoder()
-        data[column] = le.fit_transform(data[column])
+        if is_training_data:
+            labelEncoders[column] = preprocessing.LabelEncoder()
+
+        data[column] = labelEncoders[column].fit_transform(data[column])
 
     # derive some features
     data['has_zip'] = data.zip.apply(lambda x: x == "")
@@ -63,11 +73,14 @@ def load_and_preprocess_instagram4k_data():
                        'public_email', 'address_street', 'direct_messaging', 'public_phone_number',
                        'business_contact_method', 'public_phone_country_code', 'day_trunc']]
 
-    return data, valid_features, target
+    if is_training_data:
+        return data, valid_features, target
+    else:
+        return data, valid_features
 
 
 def train_model_on_instagram4k_data():
-    data, valid_features, target = load_and_preprocess_instagram4k_data()
+    data, valid_features, target = load_and_preprocess_instagram4k_data(True)
 
     # scale_pos_weight = num negative / num positive
     value_counts = data.engaged.value_counts()
@@ -80,7 +93,10 @@ def train_model_on_instagram4k_data():
     dtrain.construct()
     oof_preds = np.zeros(data.shape[0])
 
-    folds = KFold(n_splits=5, shuffle=True, random_state=1)
+    num_classifiers = 5
+    classifiers = []
+
+    folds = KFold(n_splits=num_classifiers, shuffle=True, random_state=1)
 
     for trn_idx, val_idx in folds.split(data):
         lgb_params = {
@@ -99,6 +115,8 @@ def train_model_on_instagram4k_data():
             verbose_eval=0,
         )
 
+        classifiers.append(clf)
+
         oof_preds[val_idx] = clf.predict(dtrain.data.iloc[val_idx])
         print(roc_auc_score(target.iloc[val_idx],
                             oof_preds[val_idx]))
@@ -107,6 +125,24 @@ def train_model_on_instagram4k_data():
 
     print('overall score: %9.6f'
           % (roc_auc_score(target, data['predictions'])))
+
+    # inference on new data
+    data, valid_features = load_and_preprocess_instagram4k_data(False)
+
+    dtrain = lgb.Dataset(data=data[valid_features],
+                         free_raw_data=False)
+
+    dtrain.construct()
+
+    all_predictions = data['username']
+
+    for clf in classifiers:
+        predictions = pd.Series(clf.predict(dtrain.data))
+        all_predictions = pd.concat([all_predictions, predictions], axis=1)
+
+    all_predictions['average_score'] = all_predictions.drop(columns=['username']).mean(axis=1)
+
+    all_predictions.nlargest(200, 'average_score')['username'].apply(print)
 
 
 train_model_on_instagram4k_data()

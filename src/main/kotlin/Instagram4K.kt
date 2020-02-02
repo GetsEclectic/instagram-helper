@@ -1,3 +1,4 @@
+import com.github.doyaaaaaken.kotlincsv.dsl.csvWriter
 import org.apache.commons.math3.distribution.BetaDistribution
 import org.apache.logging.log4j.LogManager
 import org.brunocvcunha.instagram4j.requests.payload.InstagramFeedItem
@@ -5,6 +6,7 @@ import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import java.io.Closeable
 import java.lang.Exception
+import java.time.LocalDateTime
 import java.util.regex.Pattern
 
 class Instagram4K(val apiClient: ApiClient, val database: Database = Database()): Closeable {
@@ -105,8 +107,14 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
     }
 
     fun getRatioForUser(username: String): Double {
-        val user = getInstagramUserAndSaveJsonToDB(username)
-        return user.follower_count / user.following_count.toDouble()
+        logger.debug("getting ratio for: $username")
+        return try {
+            val user = getInstagramUserAndSaveJsonToDB(username)
+            user.follower_count / user.following_count.toDouble()
+        } catch(e: Exception) {
+            logger.error(e)
+            0.0
+        }
     }
 
     fun getInstagramUserAndSaveJsonToDB(username: String): InstagramUser {
@@ -186,15 +194,34 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
     }
 
     fun storeUserJsonToDbToSendToModel() {
-        val tagsAndFollowCounts = getTagsAndActionCountsUsingThompsonSampling(2000, Database.ActionType.FOLLOW_TAG_LIKER).toList().sortedByDescending { (_, value) -> value }.toMap()
+        logger.info("scanning for users to send to model")
+        val tagsAndScanCounts = getTagsAndActionCountsUsingThompsonSampling(1000, Database.ActionType.FOLLOW_TAG_LIKER).toList().sortedByDescending { (_, value) -> value }.toMap()
+        logger.info("tags and scan counts: $tagsAndScanCounts")
 
-        tagsAndFollowCounts.map { tagAndFollowCount ->
-            val topPosts = apiClient.getTopPostsByTag(tagAndFollowCount.key)
-            val likers = topPosts.flatMap { apiClient.getLikersByMediaId(it.pk).asSequence() }
-
-            applyToGoodUsers(likers, tagAndFollowCount.value, true) {
-                print("${it.pk},${tagAndFollowCount.key}\n")
+        tagsAndScanCounts.map { tagAndScanCount ->
+            val topPosts = apiClient.getTopPostsByTag(tagAndScanCount.key)
+            val likers = topPosts.flatMap {
+                try {
+                    apiClient.getLikersByMediaId(it.pk).asSequence()
+                } catch (e: Exception) {
+                    logger.error(e)
+                    sequenceOf<InstagramUserSummary>()
+                }
             }
+
+            applyToGoodUsers(likers, tagAndScanCount.value, true) {
+                database.addToUsersToScore(apiClient.getOurPK(), it.pk, tagAndScanCount.key)
+            }
+        }
+    }
+
+    fun createUnscoredUserInfoFile() {
+        val unscoredUserInfo = database.getUnscoredUserInfo(apiClient.getOurPK()).map { it.plus(Database.ActionType.FOLLOW_TAG_LIKER) }
+        val filenameToWrite = "src/main/resources/users_to_score-" + LocalDateTime.now() + ".csv"
+
+        csvWriter().open(filenameToWrite) {
+            writeRow(listOf("our_pk","requested_pk","source","json","action_type"))
+            writeAll(unscoredUserInfo)
         }
     }
 

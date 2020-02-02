@@ -19,6 +19,7 @@ import kotlin.collections.HashSet
 class ApiClient(instaName: String, instaPW: String): Closeable {
     private val instagram4j: Instagram4JWithTimeout
     private val database: Database = Database()
+    val logger = LogManager.getLogger(javaClass)
 
     init {
         val secretLoginInfo = database.getSecretLoginInfo(instaName)
@@ -32,8 +33,6 @@ class ApiClient(instaName: String, instaPW: String): Closeable {
     }
 
     private val instagramUser =  getInstagramUser(instaName)
-
-    val logger = LogManager.getLogger(javaClass)
 
     override fun close() {
         val byteArrayOutputStream = ByteArrayOutputStream()
@@ -105,10 +104,12 @@ class ApiClient(instaName: String, instaPW: String): Closeable {
     }
 
     fun getInstagramUser(name: String): InstagramUser {
+        logger.debug("getting user info for: $name")
         return sendRequestWithRetry(InstagramSearchUsernameRequest(name)).user
     }
 
     fun getFollowers(instagramUser: InstagramUser = this.instagramUser): Sequence<InstagramUserSummary> {
+        logger.debug("getting followers for: ${instagramUser.username}")
         return sequence {
             var nextMaxId: String? = null
 
@@ -121,14 +122,17 @@ class ApiClient(instaName: String, instaPW: String): Closeable {
     }
 
     fun getFollowing(): Set<InstagramUserSummary> {
+        logger.debug("getting list of users we're following")
         return HashSet(sendRequestWithRetry(InstagramGetUserFollowingRequest(instagramUser.pk)).getUsers())
     }
 
     fun unfollowByPK(pk: Long): StatusResult {
+        logger.debug("unfollowing: $pk")
         return sendRequestWithRetry(InstagramUnfollowRequest(pk))
     }
 
     fun followByPK(pk: Long): StatusResult {
+        logger.debug("following: $pk")
         return sendRequestWithRetry(InstagramFollowRequest(pk))
     }
 
@@ -137,22 +141,29 @@ class ApiClient(instaName: String, instaPW: String): Closeable {
     }
 
     fun getTopPostsByTag(tag: String): Sequence<InstagramFeedItem> {
+        logger.debug("getting top posts for: $tag")
         return sequence {
             var nextMaxId: String? = null
 
             do {
                 val tagFeedResult = sendRequestWithRetry(InstagramTagFeedRequest(tag, nextMaxId))
-                yieldAll(tagFeedResult.ranked_items)
-                nextMaxId = tagFeedResult.next_max_id
+                nextMaxId = if(tagFeedResult.ranked_items != null) {
+                    yieldAll(tagFeedResult.ranked_items)
+                    tagFeedResult.next_max_id
+                } else {
+                    null
+                }
             } while (nextMaxId != null)
         }
     }
 
     fun getLikersByMediaId(mediaId: Long): List<InstagramUserSummary> {
+        logger.debug("getting likers for: $mediaId")
         return sendRequestWithRetry(InstagramGetMediaLikersRequest(mediaId)).users
     }
 
     fun getUserFeed(userPK: Long = instagramUser.pk): Sequence<InstagramFeedItem> {
+        logger.debug("getting user feed for: $userPK")
         val minTimestamp = LocalDateTime.now().minusDays(30).atZone(ZoneId.of("UTC-05:00")).toInstant().toEpochMilli() / 1000
         val maxTimestamp = LocalDateTime.now().plusDays(1).atZone(ZoneId.of("UTC-05:00")).toInstant().toEpochMilli() / 1000
 

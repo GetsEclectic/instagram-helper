@@ -1,4 +1,5 @@
 import com.google.gson.Gson
+import org.apache.logging.log4j.LogManager
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.jooq.JSONB
 import org.jooq.SQLDialect
@@ -13,6 +14,7 @@ import java.util.*
 
 class Database {
     val create = using(getDatabaseConnection(), SQLDialect.POSTGRES)
+    val logger = LogManager.getLogger(javaClass)
 
     fun getDatabaseConnection() : Connection {
         val dbConfig = Properties()
@@ -24,6 +26,7 @@ class Database {
     }
 
     fun getBlacklist(ourPK: Long): HashSet<Long> {
+        logger.debug("getting blacklist")
         return create.select()
             .from(FOLLOW_BLACKLIST)
             .where(FOLLOW_BLACKLIST.OUR_PK.eq(ourPK))
@@ -33,11 +36,13 @@ class Database {
     }
 
     fun addToBlacklist(ourPk: Long, pkToBlacklist: Long) {
+        logger.debug("adding to blacklist: $pkToBlacklist")
         create.insertInto(FOLLOW_BLACKLIST, FOLLOW_BLACKLIST.OUR_PK, FOLLOW_BLACKLIST.BLACKLISTED_PK, FOLLOW_BLACKLIST.BLACKLIST_REASON)
             .values(ourPk, pkToBlacklist, BlacklistReason.SCANNED_WHEN_COPYING.reasonString).execute()
     }
 
     private fun getWhitelist(ourPK: Long, whitelistReasons: List<WhitelistReason>): HashSet<Long> {
+        logger.debug("getting whitelist: ourPK, list of reasons")
         return create.select()
             .from(UNFOLLOW_WHITELIST)
             .where(UNFOLLOW_WHITELIST.OUR_PK.eq(ourPK))
@@ -48,24 +53,29 @@ class Database {
     }
 
     fun getWhitelist(ourPK: Long, whitelistReason: WhitelistReason): HashSet<Long> {
+        logger.debug("getting whitelist: ourPK, one reason")
         return getWhitelist(ourPK, listOf(whitelistReason))
     }
 
     fun getWhitelist(ourPK: Long): HashSet<Long> {
+        logger.debug("getting whitelist: ourPK")
         return getWhitelist(ourPK, listOf(WhitelistReason.MANUAL, WhitelistReason.SCANNED_WHEN_PRUNING))
     }
 
     fun addToWhitelist(ourPk: Long, pkToWhitelist: Long, whitelistReason: WhitelistReason) {
+        logger.debug("adding to whitelist: $pkToWhitelist, $whitelistReason")
         create.insertInto(UNFOLLOW_WHITELIST, UNFOLLOW_WHITELIST.OUR_PK, UNFOLLOW_WHITELIST.WHITELISTED_PK, UNFOLLOW_WHITELIST.WHITELIST_REASON)
             .values(ourPk, pkToWhitelist, whitelistReason.reasonString).execute()
     }
 
     fun recordAction(ourPK: Long, requestedPK: Long, requestedUsername: String, source: String, actionType: ActionType) {
+        logger.debug("recording action: $requestedPK, $requestedUsername, $source, $actionType")
         create.insertInto(ACTION_LOG, ACTION_LOG.OUR_PK, ACTION_LOG.REQUESTED_PK, ACTION_LOG.REQUESTED_USERNAME, ACTION_LOG.SOURCE, ACTION_LOG.ACTION_TYPE)
             .values(ourPK, requestedPK, requestedUsername, source, actionType.typeString).execute()
     }
 
     fun addToLikerLog(ourPK: Long, mediaID: Long, likerPKList: List<Long>) {
+        logger.debug("adding to liker log: $mediaID, $likerPKList")
         likerPKList.map {
             create.insertInto(LIKER_LOG, LIKER_LOG.OUR_PK, LIKER_LOG.MEDIA_ID, LIKER_LOG.LIKER_PK)
                 .values(ourPK, mediaID, it).execute()
@@ -73,6 +83,7 @@ class Database {
     }
 
     fun getLikersForPost(ourPK: Long, mediaID: Long): List<Long> {
+        logger.debug("getting likers for post: $mediaID")
         return create.select()
             .from(LIKER_LOG)
             .where(LIKER_LOG.OUR_PK.eq(ourPK))
@@ -82,6 +93,7 @@ class Database {
     }
 
     fun addToFollowerLog(ourPK: Long, action: Action, followerPKList: List<Long>) {
+        logger.debug("adding to follower log: $action, $followerPKList")
         followerPKList.map {
             create.insertInto(FOLLOWER_LOG, FOLLOWER_LOG.OUR_PK, FOLLOWER_LOG.ACTION, FOLLOWER_LOG.FOLLOWER_PK)
                 .values(ourPK, action.actionString, it).execute()
@@ -91,6 +103,7 @@ class Database {
     // get current followers
     // calculated as all follows for our pk where there isn't a later unfollow
     fun getFollowers(ourPK: Long): List<Long> {
+        logger.debug("getting followers")
         val fl: FollowerLog = FollowerLog().`as`("fl")
         val flLaterUnfollow: FollowerLog = FollowerLog().`as`("fl_later_unfollow")
         return create.select()
@@ -110,6 +123,7 @@ class Database {
     }
 
     fun upsertUserJson(user: InstagramUser) {
+        logger.debug("upserting user json: $user")
         val jsonString = Gson().toJson(user)
         create.insertInto(INSTAGRAM_USER_JSON, INSTAGRAM_USER_JSON.USER_PK, INSTAGRAM_USER_JSON.JSON)
             .values(user.pk, JSONB.valueOf(jsonString))
@@ -120,6 +134,7 @@ class Database {
     }
 
     fun getSecretLoginInfo(username: String): SecretLoginInfo? {
+        logger.debug("getting secret login info: $username")
         return create.select()
             .from(SECRET_LOGIN_INFO)
             .where(SECRET_LOGIN_INFO.USERNAME.eq(username))
@@ -130,6 +145,7 @@ class Database {
     }
 
     fun upsertSecretLoginInfo(ourPK: Long, username: String, cookieStoreSerialized: ByteArray, uuid: String) {
+        logger.debug("upserting secret login info: $username")
         create.insertInto(SECRET_LOGIN_INFO, SECRET_LOGIN_INFO.USER_PK, SECRET_LOGIN_INFO.USERNAME, SECRET_LOGIN_INFO.COOKIE_STORE_SERIALIZED, SECRET_LOGIN_INFO.UUID)
             .values(ourPK, username, cookieStoreSerialized, uuid)
             .onDuplicateKeyUpdate()
@@ -141,6 +157,7 @@ class Database {
     }
 
     fun getUsernameByPK(userPK: Long): String? {
+        logger.debug("getting username by pk: $userPK")
         return create.select()
             .from(INSTAGRAM_USER_JSON)
             .where(INSTAGRAM_USER_JSON.USER_PK.eq(userPK))
@@ -152,6 +169,7 @@ class Database {
     }
 
     fun getNumActionsAndLikebacks(ourPK: Long, actionType: ActionType): List<NumActionAndLikebacks> {
+        logger.debug("getting num actions and likebacks: $actionType")
         return create.select(
             ACTION_LOG.SOURCE,
             count(),
@@ -166,6 +184,26 @@ class Database {
             .map {
                 NumActionAndLikebacks(it.getValue(ACTION_LOG.SOURCE), it.getValue(1, Long::class.java), it.getValue(2, Long::class.java))
             }
+    }
+
+    fun addToUsersToScore(ourPK: Long, scannedPK: Long, source: String) {
+        logger.debug("adding user to score: $scannedPK, $source")
+        create.insertInto(USERS_TO_SCORE, USERS_TO_SCORE.OUR_PK, USERS_TO_SCORE.SCANNED_PK, USERS_TO_SCORE.SOURCE)
+            .values(ourPK, scannedPK, source).execute()
+    }
+
+    fun getUnscoredUserInfo(ourPK: Long): List<List<Any>> {
+        logger.debug("getting unscored user info")
+        return create.select(
+            USERS_TO_SCORE.OUR_PK,
+            USERS_TO_SCORE.SCANNED_PK,
+            USERS_TO_SCORE.SOURCE,
+            INSTAGRAM_USER_JSON.JSON
+        ).from(USERS_TO_SCORE)
+            .join(INSTAGRAM_USER_JSON)
+            .on(USERS_TO_SCORE.SCANNED_PK.eq(INSTAGRAM_USER_JSON.USER_PK))
+            .fetch()
+            .map { listOf(it.getValue(USERS_TO_SCORE.OUR_PK), it.getValue( USERS_TO_SCORE.SCANNED_PK), it.getValue(USERS_TO_SCORE.SOURCE), it.getValue(INSTAGRAM_USER_JSON.JSON).toString()) }
     }
 
     data class NumActionAndLikebacks(val tag: String, val numActions: Long, val numLikebacks: Long)

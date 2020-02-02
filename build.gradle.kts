@@ -27,6 +27,7 @@ dependencies {
     compile("com.google.code.gson:gson:2.8.5")
     compile("com.github.kittinunf.fuel:fuel:2.2.0")
     compile("org.apache.commons:commons-math3:3.6.1")
+    implementation("com.github.doyaaaaaken:kotlin-csv-jvm:0.7.3")
 
     compile("org.postgresql:postgresql:42.2.6")
     jooqRuntime("org.postgresql:postgresql:42.2.6")
