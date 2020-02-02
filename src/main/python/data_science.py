@@ -1,4 +1,5 @@
 import csv
+import os
 from os import path
 
 import pandas as pd
@@ -131,11 +132,6 @@ def train_model_on_instagram4k_data():
     user_files_to_process = glob.glob("../resources/users_to_score*")
 
     for user_file in user_files_to_process:
-        output_file_name = user_file.replace("users_to_score", "user_scores")
-
-        if path.exists(output_file_name):
-            continue
-
         data, valid_features = load_and_preprocess_instagram4k_data(False, user_file)
 
         dtrain = lgb.Dataset(data=data[valid_features],
@@ -143,27 +139,31 @@ def train_model_on_instagram4k_data():
 
         dtrain.construct()
 
-        all_predictions = data['pk']
+        all_predictions = data[['pk', 'our_pk']]
 
         for clf in classifiers:
             predictions = pd.Series(clf.predict(dtrain.data))
             all_predictions = pd.concat([all_predictions, predictions], axis=1)
 
-        all_predictions['average_score'] = all_predictions.drop(columns=['pk']).mean(axis=1)
+        all_predictions['average_score'] = all_predictions.drop(columns=['pk', 'our_pk']).mean(axis=1)
 
         # all_predictions.nlargest(10, 'average_score')['username'].apply(print)
 
-        write_scores_to_file(output_file_name, all_predictions)
+        write_scores_to_file_and_move_input_file_to_processed_directory(user_file, all_predictions)
 
 
-def write_scores_to_file(output_file_name, scores):
+def write_scores_to_file_and_move_input_file_to_processed_directory(input_file_name, scores):
+    output_file_name = input_file_name.replace("users_to_score", "user_scores")
     with open(output_file_name, 'w', newline='') as csvfile:
         csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(['user_pk', 'score'])
+        csvwriter.writerow(['our_pk', 'user_pk', 'score'])
 
         scores['pk_string'] = scores['pk'].apply(str)
+        scores['our_pk_string'] = scores['our_pk'].apply(str)
 
-        scores[['pk_string', 'average_score']].apply(csvwriter.writerow, axis=1)
+        scores[['our_pk_string', 'pk_string', 'average_score']].apply(csvwriter.writerow, axis=1)
+
+        os.rename(input_file_name, "../resources/processed/" + os.path.basename(input_file_name))
 
 
 train_model_on_instagram4k_data()

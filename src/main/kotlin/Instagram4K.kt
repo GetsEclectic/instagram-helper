@@ -1,3 +1,4 @@
+import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
 import com.github.doyaaaaaken.kotlincsv.dsl.csvWriter
 import org.apache.commons.math3.distribution.BetaDistribution
 import org.apache.logging.log4j.LogManager
@@ -5,7 +6,10 @@ import org.brunocvcunha.instagram4j.requests.payload.InstagramFeedItem
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUserSummary
 import java.io.Closeable
+import java.io.File
 import java.lang.Exception
+import java.nio.file.Files
+import java.nio.file.Paths
 import java.time.LocalDateTime
 import java.util.regex.Pattern
 
@@ -222,6 +226,22 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
         csvWriter().open(filenameToWrite) {
             writeRow(listOf("our_pk","requested_pk","source","json","action_type"))
             writeAll(unscoredUserInfo)
+        }
+    }
+
+    fun loadUserScoresIntoDatabase() {
+        File("src/main/resources").listFiles().forEach {
+            if(it.name.contains("user_scores")) {
+                csvReader().open(it) {
+                    for (pksAndScore in readAllWithHeader()) {
+                        val ourPk = pksAndScore["our_pk"]!!.toLong()
+                        val userPk = pksAndScore["user_pk"]!!.toLong()
+                        val score = pksAndScore["score"]!!.toDouble()
+                        database.addToUserScores(ourPk, userPk, score)
+                    }
+                }
+                Files.move(it.toPath(), Paths.get("src/main/resources/processed/" + it.name))
+            }
         }
     }
 

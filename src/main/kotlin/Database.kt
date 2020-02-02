@@ -206,6 +206,11 @@ class Database {
             .map { listOf(it.getValue(USERS_TO_SCORE.OUR_PK), it.getValue( USERS_TO_SCORE.SCANNED_PK), it.getValue(USERS_TO_SCORE.SOURCE), it.getValue(INSTAGRAM_USER_JSON.JSON).toString()) }
     }
 
+    fun addToUserScores(ourPK: Long, userPK: Long, score: Double) {
+        create.insertInto(USER_SCORES, USER_SCORES.OUR_PK, USER_SCORES.USER_PK, USER_SCORES.SCORE)
+            .values(ourPK, userPK, score).execute()
+    }
+
     data class NumActionAndLikebacks(val tag: String, val numActions: Long, val numLikebacks: Long)
 
     data class SecretLoginInfo(val cookieStoreSerialized: ByteArray, val uuid: String) {
