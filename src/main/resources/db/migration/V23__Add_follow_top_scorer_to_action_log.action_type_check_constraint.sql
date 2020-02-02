@@ -1,0 +1,2 @@
+alter table action_log drop constraint action_log_action_type_check;
+alter table action_log add constraint action_log_action_type_check check ( action_type in ('follow_tag_liker', 'follow_user_follower', 'like_tag_liker', 'follow_top_scorer') );

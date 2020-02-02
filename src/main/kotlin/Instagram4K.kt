@@ -245,6 +245,15 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
         }
     }
 
+    fun followUsersWithHighestModelScores() {
+        val usernamesToFollow = database.getUsersWithHighestScores(apiClient.getOurPK(), 100)
+        usernamesToFollow.map {
+            println(it)
+            autoremoteClient.followByUserName(it.username)
+            database.recordAction(apiClient.getOurPK(), it.userPK, it.username, "model", Database.ActionType.FOLLOW_TOP_SCORER)
+        }
+    }
+
     fun applyThompsonSamplingToExploreTagsToFollowFrom(numberToFollow: Int = 200) {
         logger.info("applying thompson sampling for followers")
         val tagsAndFollowCounts = getTagsAndActionCountsUsingThompsonSampling(numberToFollow, Database.ActionType.FOLLOW_TAG_LIKER).toList().sortedByDescending { (_, value) -> value }.toMap()

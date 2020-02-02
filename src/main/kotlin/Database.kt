@@ -3,6 +3,7 @@ import org.apache.logging.log4j.LogManager
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.jooq.JSONB
 import org.jooq.SQLDialect
+import org.jooq.impl.DSL
 import org.jooq.impl.DSL.*
 import org.jooq.instagram4k.Tables.*
 import org.jooq.instagram4k.tables.FollowerLog
@@ -211,6 +212,28 @@ class Database {
             .values(ourPK, userPK, score).execute()
     }
 
+    fun getUsersWithHighestScores(ourPK: Long, numToFetch: Long): List<ScoredUserInfo> {
+        val selectAlreadyFollowedPKs = select(ACTION_LOG.REQUESTED_PK)
+            .from(ACTION_LOG)
+            .where(ACTION_LOG.OUR_PK.eq(ourPK))
+            .and(ACTION_LOG.ACTION_TYPE.`in`(listOf(ActionType.FOLLOW_TAG_LIKER.typeString, ActionType.FOLLOW_TOP_SCORER.typeString)))
+
+        return create.select(
+            field("{0}->'username'", String::class.java, INSTAGRAM_USER_JSON.JSON),
+            USER_SCORES.USER_PK
+        ).from(USER_SCORES)
+            .join(INSTAGRAM_USER_JSON)
+            .on(INSTAGRAM_USER_JSON.USER_PK.eq(USER_SCORES.USER_PK))
+            .where(USER_SCORES.USER_PK.notIn(selectAlreadyFollowedPKs))
+            .and(USER_SCORES.OUR_PK.eq(ourPK))
+            .orderBy(USER_SCORES.SCORE.desc())
+            .limit(numToFetch)
+            .fetch()
+            .map { ScoredUserInfo(it.getValue(USER_SCORES.USER_PK), it.getValue(0).toString().replace("\"", "")) }
+    }
+
+    data class ScoredUserInfo(val userPK: Long, val username: String)
+
     data class NumActionAndLikebacks(val tag: String, val numActions: Long, val numLikebacks: Long)
 
     data class SecretLoginInfo(val cookieStoreSerialized: ByteArray, val uuid: String) {
@@ -262,7 +285,8 @@ class Database {
     enum class ActionType(val typeString: String) {
         FOLLOW_TAG_LIKER("follow_tag_liker"),
         FOLLOW_USER_FOLLOWER("follow_user_follower"),
-        LIKE_TAG_LIKER("like_tag_liker");
+        LIKE_TAG_LIKER("like_tag_liker"),
+        FOLLOW_TOP_SCORER("follow_top_scorer");
 
         override fun toString(): String {
             return typeString

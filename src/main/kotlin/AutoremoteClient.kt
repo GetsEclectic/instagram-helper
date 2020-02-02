@@ -73,7 +73,7 @@ class AutoremoteClient(ourUsername: String) {
     private fun switchProfile(userName: String) {
         val autoremoteUnfollowByUsernameURL = "$autoremoteBaseURL&message=SwitchProfile=:=$userName"
         Fuel.get(autoremoteUnfollowByUsernameURL).responseString()
-        Thread.sleep(12000)
+        Thread.sleep(20000)
     }
 
     fun like3Recent(userName: String) {
