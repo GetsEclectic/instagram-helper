@@ -1,3 +1,6 @@
+import csv
+from os import path
+
 import pandas as pd
 import lightgbm as lgb
 import json
@@ -9,6 +12,7 @@ import re
 from datetime import datetime
 import seaborn as sns
 import matplotlib.pyplot as plt
+import glob
 
 non_word_pattern = re.compile(r'\W+')
 
@@ -33,11 +37,8 @@ labelEncoders = {}
 
 
 # is_training data is true if we're training, false if we're inferring on previously unseen data
-def load_and_preprocess_instagram4k_data(is_training_data):
-    if is_training_data:
-        data = read_large_csv("../resources/instagram4k_export.csv")
-    else:
-        data = read_large_csv("../resources/users_to_score-2020-02-02T10:08:23.584300.csv")
+def load_and_preprocess_instagram4k_data(is_training_data, csv_file_name):
+    data = read_large_csv(csv_file_name)
 
     # turn json into dataframe columns
     deserialized_json_series = pd.DataFrame.from_records(data.json.apply(json.loads))
@@ -80,7 +81,7 @@ def load_and_preprocess_instagram4k_data(is_training_data):
 
 
 def train_model_on_instagram4k_data():
-    data, valid_features, target = load_and_preprocess_instagram4k_data(True)
+    data, valid_features, target = load_and_preprocess_instagram4k_data(True, "../resources/instagram4k_export.csv")
 
     # scale_pos_weight = num negative / num positive
     value_counts = data.engaged.value_counts()
@@ -127,22 +128,42 @@ def train_model_on_instagram4k_data():
           % (roc_auc_score(target, data['predictions'])))
 
     # inference on new data
-    data, valid_features = load_and_preprocess_instagram4k_data(False)
+    user_files_to_process = glob.glob("../resources/users_to_score*")
 
-    dtrain = lgb.Dataset(data=data[valid_features],
-                         free_raw_data=False)
+    for user_file in user_files_to_process:
+        output_file_name = user_file.replace("users_to_score", "user_scores")
 
-    dtrain.construct()
+        if path.exists(output_file_name):
+            continue
 
-    all_predictions = data['username']
+        data, valid_features = load_and_preprocess_instagram4k_data(False, user_file)
 
-    for clf in classifiers:
-        predictions = pd.Series(clf.predict(dtrain.data))
-        all_predictions = pd.concat([all_predictions, predictions], axis=1)
+        dtrain = lgb.Dataset(data=data[valid_features],
+                             free_raw_data=False)
 
-    all_predictions['average_score'] = all_predictions.drop(columns=['username']).mean(axis=1)
+        dtrain.construct()
 
-    all_predictions.nlargest(200, 'average_score')['username'].apply(print)
+        all_predictions = data['pk']
+
+        for clf in classifiers:
+            predictions = pd.Series(clf.predict(dtrain.data))
+            all_predictions = pd.concat([all_predictions, predictions], axis=1)
+
+        all_predictions['average_score'] = all_predictions.drop(columns=['pk']).mean(axis=1)
+
+        # all_predictions.nlargest(10, 'average_score')['username'].apply(print)
+
+        write_scores_to_file(output_file_name, all_predictions)
+
+
+def write_scores_to_file(output_file_name, scores):
+    with open(output_file_name, 'w', newline='') as csvfile:
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(['user_pk', 'score'])
+
+        scores['pk_string'] = scores['pk'].apply(str)
+
+        scores[['pk_string', 'average_score']].apply(csvwriter.writerow, axis=1)
 
 
 train_model_on_instagram4k_data()
