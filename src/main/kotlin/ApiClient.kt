@@ -1,4 +1,5 @@
 import com.google.gson.Gson
+import org.apache.http.ConnectionClosedException
 import org.apache.http.client.CookieStore
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.impl.client.HttpClientBuilder
@@ -12,6 +13,7 @@ import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.time.LocalDateTime
 import java.time.ZoneId
+import javax.net.ssl.SSLException
 import javax.net.ssl.SSLProtocolException
 import kotlin.collections.HashSet
 
@@ -64,7 +66,7 @@ class ApiClient(instaName: String, instaPW: String): Closeable {
             }
         } catch (e: Exception) {
             when(e) {
-                is SSLProtocolException, is SocketException, is SocketTimeoutException -> {
+                is SSLProtocolException, is SocketException, is SocketTimeoutException, is ConnectionClosedException, is SSLException -> {
                     return Instagram4JResult(null, RequestStatus.FAIL_NETWORK_EXCEPTION)
                 }
                 else -> throw e
@@ -78,7 +80,7 @@ class ApiClient(instaName: String, instaPW: String): Closeable {
     private fun <T: StatusResult> sendRequestWithRetry(request: InstagramRequest<T>): T {
         var instagram4JResult: Instagram4JResult<T>
 
-        Thread.sleep((1250 + (0..500).random()).toLong())
+        Thread.sleep((1500 + (0..500).random()).toLong())
 
         do {
             instagram4JResult = sendRequestWithCatchNetworkExceptions(request)

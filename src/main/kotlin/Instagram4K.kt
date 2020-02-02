@@ -137,7 +137,7 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
             val userToCopyFrom = getInstagramUserAndSaveJsonToDB(username)
             val otherUsersFollowers = apiClient.getFollowers(userToCopyFrom)
 
-            applyToGoodUsers(otherUsersFollowers, numberToCopy, true) {
+            applyToGoodUsers(otherUsersFollowers, numberToCopy, true,true) {
                 logger.info("following: ${it.username}")
                 autoremoteClient.followByUserName(it.username)
                 database.recordAction(apiClient.getOurPK(), it.pk, it.username, username, Database.ActionType.FOLLOW_USER_FOLLOWER)
@@ -153,7 +153,7 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
             val topPosts = apiClient.getTopPostsByTag(tag)
             val likers = topPosts.flatMap { apiClient.getLikersByMediaId(it.pk).asSequence() }
 
-            applyToGoodUsers(likers, numberToCopy, true) {
+            applyToGoodUsers(likers, numberToCopy, true,true) {
                 logger.info("following: ${it.username}")
                 autoremoteClient.followByUserName(it.username)
                 database.recordAction(apiClient.getOurPK(), it.pk, it.username, tag, Database.ActionType.FOLLOW_TAG_LIKER)
@@ -199,7 +199,7 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
 
     fun storeUserJsonToDbToSendToModel() {
         logger.info("scanning for users to send to model")
-        val tagsAndScanCounts = getTagsAndActionCountsUsingThompsonSampling(1000, Database.ActionType.FOLLOW_TAG_LIKER).toList().sortedByDescending { (_, value) -> value }.toMap()
+        val tagsAndScanCounts = getTagsAndActionCountsUsingThompsonSampling(210, Database.ActionType.FOLLOW_TAG_LIKER).toList().sortedByDescending { (_, value) -> value }.toMap()
         logger.info("tags and scan counts: $tagsAndScanCounts")
 
         tagsAndScanCounts.map { tagAndScanCount ->
@@ -213,7 +213,7 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
                 }
             }
 
-            applyToGoodUsers(likers, tagAndScanCount.value, true) {
+            applyToGoodUsers(likers, tagAndScanCount.value, true,false) {
                 database.addToUsersToScore(apiClient.getOurPK(), it.pk, tagAndScanCount.key)
             }
         }
@@ -282,7 +282,7 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
             val topPosts = apiClient.getTopPostsByTag(tag)
             val likers = topPosts.flatMap { apiClient.getLikersByMediaId(it.pk).asSequence() }
 
-            applyToGoodUsers(likers, numberToLike, false) { userSummary ->
+            applyToGoodUsers(likers, numberToLike, false,true) { userSummary ->
                 logger.info("liking posts by: ${userSummary.username}")
                 autoremoteClient.like3Recent(userSummary.username)
                 database.recordAction(apiClient.getOurPK(), userSummary.pk, userSummary.username, tag, Database.ActionType.LIKE_TAG_LIKER)
@@ -296,7 +296,7 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
     //      not in the blacklist
     //      not already being followed by us
     //      with a ratio < 0.5
-    private fun applyToGoodUsers(users: Sequence<InstagramUserSummary>, numberToApplyTo: Int, includePrivateUsers: Boolean, funToApply: (InstagramUserSummary) -> Unit) {
+    private fun applyToGoodUsers(users: Sequence<InstagramUserSummary>, numberToApplyTo: Int, includePrivateUsers: Boolean, doRatioFilter: Boolean, funToApply: (InstagramUserSummary) -> Unit) {
         val blacklist = database.getBlacklist(apiClient.getOurPK())
         val myFollowingPKs = apiClient.getFollowing().toList().map { it.pk }
 
@@ -308,7 +308,14 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
                 it
             }
             .filter { includePrivateUsers || !it.is_private }
-            .filter { getRatioForUser(it.username) < 0.5 }
+            .filter {
+                if(doRatioFilter) {
+                    getRatioForUser(it.username) < 0.5
+                } else {
+                    getInstagramUserAndSaveJsonToDB(it.username)
+                    true
+                }
+            }
             .map {
                 funToApply(it)
             }

@@ -1,7 +1,5 @@
 import csv
 import os
-from os import path
-
 import pandas as pd
 import lightgbm as lgb
 import json
