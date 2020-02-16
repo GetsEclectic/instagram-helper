@@ -169,15 +169,17 @@ class Database {
             }
     }
 
-    fun getNumActionsAndLikebacks(ourPK: Long, actionType: ActionType): List<NumActionAndLikebacks> {
-        logger.debug("getting num actions and likebacks: $actionType")
+    fun getNumActionsAndLikebacks(ourPK: Long, actionTypes: List<ActionType>): List<NumActionAndLikebacks> {
+        logger.debug("getting num actions and likebacks: $actionTypes")
+        val actionTypeStrings = actionTypes.map { it.typeString }
+
         return create.select(
             ACTION_LOG.SOURCE,
             count(),
             sum(`when`(exists(create.selectOne().from(LIKER_LOG).where(LIKER_LOG.LIKER_PK.eq(ACTION_LOG.REQUESTED_PK))), 1).else_(0))
         )
             .from(ACTION_LOG)
-            .where(ACTION_LOG.ACTION_TYPE.eq(actionType.typeString))
+            .where(ACTION_LOG.ACTION_TYPE.`in`(actionTypeStrings))
             .and(ACTION_LOG.OUR_PK.eq(ourPK))
             .and(ACTION_LOG.INSERT_DATE.greaterThan(OffsetDateTime.parse("2019-10-27T00:00:00-05:00")))
             .groupBy(ACTION_LOG.SOURCE)

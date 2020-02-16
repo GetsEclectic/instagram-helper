@@ -158,14 +158,14 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
         }
     }
 
-    fun getBetaDistributions(actionType: Database.ActionType): List<TagAndBetaDistribution> {
+    fun getBetaDistributions(actionTypes: List<Database.ActionType>): List<TagAndBetaDistribution> {
         // default beta distribution parameters, representing our initial belief about the distribution of like back rates
         // centered around 0.07, very likely less than 0.3
         // on initial implementation these were both defaulted to 1, which resulted in overexploration of new tags
         val priorAlpha = 3.0
-        val priorBeta = 25.0
+        val priorBeta = 30.0
 
-        val numFollowRequestsAndLikebacks = database.getNumActionsAndLikebacks(apiClient.getOurPK(), actionType)
+        val numFollowRequestsAndLikebacks = database.getNumActionsAndLikebacks(apiClient.getOurPK(), actionTypes)
         val setOfRecentTagsFromUserFeed = getSetOfRecentTagsFromUserFeed()
 
         val tagsNotExploredYet = setOfRecentTagsFromUserFeed.minus(numFollowRequestsAndLikebacks.map { it.tag })
@@ -178,8 +178,8 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
         )
     }
 
-    fun getTagsAndActionCountsUsingThompsonSampling(numActionsToGet: Int, actionType: Database.ActionType): Map<String, Int> {
-        val betaDistributions = getBetaDistributions(actionType)
+    fun getTagsAndActionCountsUsingThompsonSampling(numActionsToGet: Int, actionTypes: List<Database.ActionType>): Map<String, Int> {
+        val betaDistributions = getBetaDistributions(actionTypes)
         val listOfWinners = (1..numActionsToGet).map { getArgMaxFromBetaDistributions(betaDistributions) }
         return listOfWinners.groupingBy { it }.eachCount()
     }
@@ -196,7 +196,7 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
         logger.info("scanning for users to send to model")
         try {
             val tagsAndScanCounts =
-                getTagsAndActionCountsUsingThompsonSampling(1000, Database.ActionType.FOLLOW_TAG_LIKER).toList()
+                getTagsAndActionCountsUsingThompsonSampling(1000, listOf(Database.ActionType.FOLLOW_TAG_LIKER, Database.ActionType.FOLLOW_TOP_SCORER)).toList()
                     .sortedByDescending { (_, value) -> value }.toMap()
             logger.info("tags and scan counts: $tagsAndScanCounts")
 
@@ -254,7 +254,7 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
 
     fun applyThompsonSamplingToExploreTagsToFollowFrom(numberToFollow: Int = 200) {
         logger.info("applying thompson sampling for followers")
-        val tagsAndFollowCounts = getTagsAndActionCountsUsingThompsonSampling(numberToFollow, Database.ActionType.FOLLOW_TAG_LIKER).toList().sortedByDescending { (_, value) -> value }.toMap()
+        val tagsAndFollowCounts = getTagsAndActionCountsUsingThompsonSampling(numberToFollow, listOf(Database.ActionType.FOLLOW_TAG_LIKER)).toList().sortedByDescending { (_, value) -> value }.toMap()
         logger.info("tags and follow counts: $tagsAndFollowCounts")
         tagsAndFollowCounts.map {
             followLikersOfTopPostsForTag(it.key, it.value)
@@ -263,7 +263,7 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
 
     fun applyThompsonSamplingToExploreTagsToLikeFrom(numberToLike: Int = 200) {
         logger.info("applying thompson sampling for likers")
-        val tagsAndFollowCounts = getTagsAndActionCountsUsingThompsonSampling(numberToLike, Database.ActionType.LIKE_TAG_LIKER).toList().sortedByDescending { (_, value) -> value }.toMap()
+        val tagsAndFollowCounts = getTagsAndActionCountsUsingThompsonSampling(numberToLike, listOf(Database.ActionType.LIKE_TAG_LIKER)).toList().sortedByDescending { (_, value) -> value }.toMap()
         logger.info("tags and follow counts: $tagsAndFollowCounts")
         tagsAndFollowCounts.map {
             likeLikersOfTopPostsForTag(it.key, it.value)
