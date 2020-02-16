@@ -63,7 +63,10 @@ def load_and_preprocess_instagram4k_data(is_training_data, csv_file_name):
         data[column] = labelEncoders[column].fit_transform(data[column])
 
     # derive some features
-    data['has_zip'] = data.zip.apply(lambda x: x == "")
+    if hasattr(data, 'zip'):
+        data['has_zip'] = data.zip.apply(lambda x: x == "")
+    else :
+        data['has_zip'] = False
 
     # remove non numeric and non boolean features
     valid_features = [f for f in data.columns if f not in

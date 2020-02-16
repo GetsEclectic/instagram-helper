@@ -1,3 +1,4 @@
+import com.fasterxml.jackson.core.JsonParseException
 import com.google.gson.Gson
 import org.apache.http.ConnectionClosedException
 import org.apache.http.client.CookieStore
@@ -48,7 +49,7 @@ class ApiClient(instaName: String, instaPW: String): Closeable {
         SUCCESS, FAIL_RATE_LIMIT, FAIL_NETWORK_EXCEPTION, FAIL_ACTION_BLOCKED
     }
 
-    data class Instagram4JResult<T>(val statusResult: T?, val requestStatus: RequestStatus)
+    data class Instagram4JResult<T>(val statusResult: T?, val requestStatus: RequestStatus, val exception: Exception? = null)
 
     // returns a StatusResult if the call was successful, returns null if it was rate limited or encountered a network exception
     private fun <T: StatusResult> sendRequestWithCatchNetworkExceptions(request: InstagramRequest<T>): Instagram4JResult<T> {
@@ -66,8 +67,8 @@ class ApiClient(instaName: String, instaPW: String): Closeable {
             }
         } catch (e: Exception) {
             when(e) {
-                is SSLProtocolException, is SocketException, is SocketTimeoutException, is ConnectionClosedException, is SSLException -> {
-                    return Instagram4JResult(null, RequestStatus.FAIL_NETWORK_EXCEPTION)
+                is SSLProtocolException, is SocketException, is SocketTimeoutException, is ConnectionClosedException, is SSLException, is JsonParseException -> {
+                    return Instagram4JResult(null, RequestStatus.FAIL_NETWORK_EXCEPTION, e)
                 }
                 else -> throw e
             }
@@ -80,25 +81,31 @@ class ApiClient(instaName: String, instaPW: String): Closeable {
     private fun <T: StatusResult> sendRequestWithRetry(request: InstagramRequest<T>): T {
         var instagram4JResult: Instagram4JResult<T>
 
-        Thread.sleep((1500 + (0..500).random()).toLong())
+        var numRateLimitFailures = 0
+
+        Thread.sleep((3000 + (0..500).random()).toLong())
 
         do {
             instagram4JResult = sendRequestWithCatchNetworkExceptions(request)
 
-            when {
-                instagram4JResult.requestStatus == RequestStatus.FAIL_RATE_LIMIT -> {
+            when (instagram4JResult.requestStatus) {
+                RequestStatus.FAIL_RATE_LIMIT -> {
+                    if(numRateLimitFailures == 3) {
+                        throw Exception("too many rate limit failures")
+                    }
+
                     val sleepTimeInMinutes = 10.toLong()
                     logger.info("got rate limited, sleeping for $sleepTimeInMinutes minutes and retrying")
                     Thread.sleep(sleepTimeInMinutes * 60 * 1000)
-                }
 
-                instagram4JResult.requestStatus == RequestStatus.FAIL_NETWORK_EXCEPTION -> {
+                    numRateLimitFailures++
+                }
+                RequestStatus.FAIL_NETWORK_EXCEPTION -> {
                     val sleepTimeInSeconds = 5.toLong()
-                    logger.info("network issue, sleeping for $sleepTimeInSeconds seconds and retrying")
+                    logger.info("network issue, sleeping for $sleepTimeInSeconds seconds and retrying: " + instagram4JResult.exception.toString() )
                     Thread.sleep(sleepTimeInSeconds * 1000)
                 }
-
-                instagram4JResult.requestStatus == RequestStatus.FAIL_ACTION_BLOCKED -> throw Exception("instagram action was blocked!")
+                RequestStatus.FAIL_ACTION_BLOCKED -> throw Exception("instagram action was blocked!")
             }
         } while(instagram4JResult.requestStatus != RequestStatus.SUCCESS)
 

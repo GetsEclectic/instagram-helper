@@ -112,13 +112,8 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
 
     fun getRatioForUser(username: String): Double {
         logger.debug("getting ratio for: $username")
-        return try {
-            val user = getInstagramUserAndSaveJsonToDB(username)
-            user.follower_count / user.following_count.toDouble()
-        } catch(e: Exception) {
-            logger.error(e)
-            0.0
-        }
+        val user = getInstagramUserAndSaveJsonToDB(username)
+        return user.follower_count / user.following_count.toDouble()
     }
 
     fun getInstagramUserAndSaveJsonToDB(username: String): InstagramUser {
@@ -199,23 +194,24 @@ class Instagram4K(val apiClient: ApiClient, val database: Database = Database())
 
     fun storeUserJsonToDbToSendToModel() {
         logger.info("scanning for users to send to model")
-        val tagsAndScanCounts = getTagsAndActionCountsUsingThompsonSampling(210, Database.ActionType.FOLLOW_TAG_LIKER).toList().sortedByDescending { (_, value) -> value }.toMap()
-        logger.info("tags and scan counts: $tagsAndScanCounts")
+        try {
+            val tagsAndScanCounts =
+                getTagsAndActionCountsUsingThompsonSampling(1000, Database.ActionType.FOLLOW_TAG_LIKER).toList()
+                    .sortedByDescending { (_, value) -> value }.toMap()
+            logger.info("tags and scan counts: $tagsAndScanCounts")
 
-        tagsAndScanCounts.map { tagAndScanCount ->
-            val topPosts = apiClient.getTopPostsByTag(tagAndScanCount.key)
-            val likers = topPosts.flatMap {
-                try {
+            tagsAndScanCounts.map { tagAndScanCount ->
+                val topPosts = apiClient.getTopPostsByTag(tagAndScanCount.key)
+                val likers = topPosts.flatMap {
                     apiClient.getLikersByMediaId(it.pk).asSequence()
-                } catch (e: Exception) {
-                    logger.error(e)
-                    sequenceOf<InstagramUserSummary>()
+                }
+
+                applyToGoodUsers(likers, tagAndScanCount.value, true, false) {
+                    database.addToUsersToScore(apiClient.getOurPK(), it.pk, tagAndScanCount.key)
                 }
             }
-
-            applyToGoodUsers(likers, tagAndScanCount.value, true,false) {
-                database.addToUsersToScore(apiClient.getOurPK(), it.pk, tagAndScanCount.key)
-            }
+        } catch (e: Exception) {
+            logger.error(e)
         }
     }
 
