@@ -15,6 +15,9 @@ import glob
 
 non_word_pattern = re.compile(r'\W+')
 
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', None)
+
 
 def read_large_csv(filename):
     large_pd = pd.DataFrame()
@@ -44,19 +47,24 @@ def load_and_preprocess_instagram4k_data(is_training_data, csv_file_name):
     data = data.drop(columns=['json'])
     data = pd.concat([data, deserialized_json_series], axis=1)
 
-    # filter out days with especially low like rates, indicates something went wrong with the phone/tasker
+    # get rid of non categorical strings
+    data.drop(columns=['username', 'full_name', 'profile_pic_id', 'profile_pic_url',
+                       'hd_profile_pic_url_info', 'hd_profile_pic_versions', 'public_email'], inplace=True)
+
+    # filter out days with especially low engagement rates, indicates something went wrong with the phone/tasker
     if is_training_data:
         data['day_trunc'] = data['insert_date'].apply(lambda x: datetime.strptime(x.split(" ")[0], '%Y-%m-%d'))
-        like_rates_by_day = data.groupby('day_trunc')['liked'].mean()
-        invalid_days = like_rates_by_day[like_rates_by_day < 0.035]
+        engaged_rates_by_day = data.groupby(['day_trunc'])['engaged'].mean()
+        invalid_days = engaged_rates_by_day[engaged_rates_by_day < engaged_rates_by_day.quantile(0.2)]
         data.drop(data[data['day_trunc'].isin(invalid_days.index)].index, inplace=True)
 
         # values to predict
         target = data.engaged
 
     # integer encode categorical features
-    columns_to_integer_encode = ['source']
+    columns_to_integer_encode = ['source', 'category']
     for column in columns_to_integer_encode:
+        data[column] = data[column].astype(str)
         if is_training_data:
             labelEncoders[column] = preprocessing.LabelEncoder()
 
@@ -65,16 +73,16 @@ def load_and_preprocess_instagram4k_data(is_training_data, csv_file_name):
     # derive some features
     if hasattr(data, 'zip'):
         data['has_zip'] = data.zip.apply(lambda x: x == "")
-    else :
+    else:
         data['has_zip'] = False
 
     # remove non numeric and non boolean features
     valid_features = [f for f in data.columns if f not in
                       ['id', 'requested_username', 'insert_date', 'liked','followed_back', 'engaged', 'profile_pic_url',
                        'hd_profile_pic_url_info', 'hd_profile_pic_versions', 'username', 'biography', 'full_name',
-                       'external_url', 'profile_pic_id', 'external_lynx_url', 'zip', 'category', 'city_name',
+                       'external_url', 'profile_pic_id', 'external_lynx_url', 'city_name', 'zip',
                        'public_email', 'address_street', 'direct_messaging', 'public_phone_number',
-                       'business_contact_method', 'public_phone_country_code', 'day_trunc', 'action_type']]
+                       'business_contact_method', 'public_phone_country_code', 'day_trunc']]
 
     if is_training_data:
         return data, valid_features, target
