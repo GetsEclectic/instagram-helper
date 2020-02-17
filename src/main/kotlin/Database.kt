@@ -3,7 +3,6 @@ import org.apache.logging.log4j.LogManager
 import org.brunocvcunha.instagram4j.requests.payload.InstagramUser
 import org.jooq.JSONB
 import org.jooq.SQLDialect
-import org.jooq.impl.DSL
 import org.jooq.impl.DSL.*
 import org.jooq.instagram4k.Tables.*
 import org.jooq.instagram4k.tables.FollowerLog
@@ -195,7 +194,7 @@ class Database {
             .values(ourPK, scannedPK, source).execute()
     }
 
-    fun getUnscoredUserInfo(ourPK: Long): List<List<Any>> {
+    fun getUnscoredUserInfo(): List<List<Any>> {
         logger.debug("getting unscored user info")
 
         val selectScoredUsers = select(USER_SCORES.USER_PK)
@@ -212,6 +211,75 @@ class Database {
             .where(USERS_TO_SCORE.SCANNED_PK.notIn(selectScoredUsers))
             .fetch()
             .map { listOf(it.getValue(USERS_TO_SCORE.OUR_PK), it.getValue( USERS_TO_SCORE.SCANNED_PK), it.getValue(USERS_TO_SCORE.SOURCE), it.getValue(INSTAGRAM_USER_JSON.JSON).toString()) }
+    }
+
+    fun getEngagementModelTrainingData(): List<List<Any>> {
+        val sql =
+            """
+                select
+                	al.our_pk,
+                	al.requested_pk,
+                	to_char(al.insert_date, 'YYYY-MM-DD HH24:MI:SS'),
+                	al."source",
+                	(
+                	select
+                		iuj.json
+                	from
+                		instagram_user_json iuj
+                	where
+                		iuj.user_pk = al.requested_pk
+                		and not exists (
+                		select
+                			1
+                		from
+                			instagram_user_json iuj_later
+                		where
+                			iuj_later.user_pk = iuj.user_pk
+                			and iuj_later.insert_date > iuj.insert_date)),
+                	case
+                		when exists (
+                		select
+                			1
+                		from
+                			liker_log ll
+                		where
+                			ll.liker_pk = al.requested_pk) then 1
+                		else 0
+                	end liked,
+                	case
+                		when exists (
+                		select
+                			1
+                		from
+                			follower_log fl
+                		where
+                			fl.follower_pk = al.requested_pk
+                			and fl."action" = 'followed') then 1
+                		else 0
+                	end followed_back,
+                	case
+                		when exists (
+                		select
+                			1
+                		from
+                			liker_log ll
+                		join liker_log ll_later on
+                			ll_later.liker_pk = ll.liker_pk
+                			and ll_later.insert_date > ll.insert_date + interval '18 hours'
+                		where
+                			ll.liker_pk = al.requested_pk) then 1
+                		else 0
+                	end engaged
+                from
+                	action_log al
+                where
+                	al.action_type in ('follow_top_scorer',
+                	'follow_tag_liker')
+                	and al.insert_date >= date '2019-10-27';
+            """.trimIndent()
+
+        logger.debug("getting engagement model training data")
+        return create.fetch(sql).map { it.intoList() }
     }
 
     fun addToUserScores(ourPK: Long, userPK: Long, score: Double) {

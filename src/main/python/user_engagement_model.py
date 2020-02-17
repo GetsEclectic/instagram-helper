@@ -55,7 +55,7 @@ def load_and_preprocess_instagram4k_data(is_training_data, csv_file_name):
         target = data.engaged
 
     # integer encode categorical features
-    columns_to_integer_encode = ['action_type', 'source']
+    columns_to_integer_encode = ['source']
     for column in columns_to_integer_encode:
         if is_training_data:
             labelEncoders[column] = preprocessing.LabelEncoder()
@@ -74,7 +74,7 @@ def load_and_preprocess_instagram4k_data(is_training_data, csv_file_name):
                        'hd_profile_pic_url_info', 'hd_profile_pic_versions', 'username', 'biography', 'full_name',
                        'external_url', 'profile_pic_id', 'external_lynx_url', 'zip', 'category', 'city_name',
                        'public_email', 'address_street', 'direct_messaging', 'public_phone_number',
-                       'business_contact_method', 'public_phone_country_code', 'day_trunc']]
+                       'business_contact_method', 'public_phone_country_code', 'day_trunc', 'action_type']]
 
     if is_training_data:
         return data, valid_features, target
@@ -83,7 +83,7 @@ def load_and_preprocess_instagram4k_data(is_training_data, csv_file_name):
 
 
 def train_model_on_instagram4k_data():
-    data, valid_features, target = load_and_preprocess_instagram4k_data(True, "../resources/instagram4k_export.csv")
+    data, valid_features, target = load_and_preprocess_instagram4k_data(True, get_latest_training_data_file_name())
 
     # scale_pos_weight = num negative / num positive
     value_counts = data.engaged.value_counts()
@@ -165,6 +165,12 @@ def write_scores_to_file_and_move_input_file_to_processed_directory(input_file_n
         scores[['our_pk_string', 'pk_string', 'average_score']].apply(csvwriter.writerow, axis=1)
 
         os.rename(input_file_name, "../resources/processed/" + os.path.basename(input_file_name))
+
+
+def get_latest_training_data_file_name():
+    training_data_file_names = glob.glob("../resources/training_data*")
+    training_data_file_names.sort(reverse=True, key=lambda x: re.match(r"^../resources/training_data-(.*).csv$", x).group(1))
+    return training_data_file_names[0]
 
 
 train_model_on_instagram4k_data()
