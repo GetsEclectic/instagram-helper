@@ -54,9 +54,10 @@ def load_and_preprocess_instagram4k_data(is_training_data, csv_file_name):
     # filter out days with especially low engagement rates, indicates something went wrong with the phone/tasker
     if is_training_data:
         data['day_trunc'] = data['insert_date'].apply(lambda x: datetime.strptime(x.split(" ")[0], '%Y-%m-%d'))
-        engaged_rates_by_day = data.groupby(['day_trunc'])['engaged'].mean()
-        invalid_days = engaged_rates_by_day[engaged_rates_by_day < engaged_rates_by_day.quantile(0.2)]
-        data.drop(data[data['day_trunc'].isin(invalid_days.index)].index, inplace=True)
+        for pk, group in data.groupby(['our_pk']):
+            engaged_rates_by_day = group.groupby(['day_trunc'])['engaged'].mean()
+            invalid_days = engaged_rates_by_day[engaged_rates_by_day < engaged_rates_by_day.quantile(0.14)]
+            data.drop(group[group['day_trunc'].isin(invalid_days.index)].index, inplace=True)
 
         # values to predict
         target = data.engaged
